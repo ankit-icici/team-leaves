@@ -1,0 +1,17 @@
+{
+  "name": "Team Leaves",
+  "short_name": "Leaves",
+  "description": "See who on the team is out, and mark your own leaves.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "/team-leaves/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFBF7",
+  "theme_color": "#E06A0E",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

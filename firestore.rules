@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Team Leaves — paste this into Firebase console → Firestore Database → Rules
+//
+// What this does:
+//   • Only clients signed in through your app can read or write.
+//   • Nothing outside teams/{teamId} is reachable at all.
+//   • Documents can be created and updated, but never deleted outright,
+//     so nobody can wipe the team's history with one bad tap.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /teams/{teamId} {
+
+      // The roster: teams/{teamId}/meta/roster
+      match /meta/{docId} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null;
+        allow delete: if false;
+      }
+
+      // One document per calendar year: teams/{teamId}/years/2026
+      match /years/{year} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null;
+        allow delete: if false;
+      }
+
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

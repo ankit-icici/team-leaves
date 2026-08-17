@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E06A0E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Team Leaves">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<title>Team Leaves</title>
+<style>
+  :root{
+    --o-500:#F37E20; --o-600:#E06A0E; --o-700:#B8510A;
+    --o-100:#FFE7D2; --o-050:#FFF6EE;
+    --maroon:#8A1538;
+    --ink:#2A1C14; --ink-2:#7A6455; --ink-3:#A79285;
+    --line:#EFE1D5; --paper:#FFFBF7; --white:#FFFFFF;
+    --green:#16A34A;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --r:16px;
+    --shadow:0 1px 2px rgba(42,28,20,.05), 0 8px 24px rgba(42,28,20,.06);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans); background:var(--paper); color:var(--ink);
+    font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased;
+    font-variant-numeric:tabular-nums;
+  }
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+  input{font:inherit;color:inherit}
+  :focus-visible{outline:2.5px solid var(--o-600);outline-offset:2px;border-radius:6px}
+  .wrap{max-width:560px;margin:0 auto;padding:0 0 130px}
+
+  /* top bar */
+  .top{
+    position:sticky;top:0;z-index:30;
+    background:linear-gradient(118deg,var(--o-600) 0%,var(--o-500) 52%,#F79A46 100%);
+    color:#fff; padding:calc(14px + env(safe-area-inset-top)) 18px 18px;
+    border-radius:0 0 22px 22px; box-shadow:0 6px 22px rgba(184,81,10,.22);
+  }
+  .top-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand{display:flex;align-items:baseline;gap:8px;min-width:0}
+  .brand h1{margin:0;font-size:19px;font-weight:750;letter-spacing:-.35px;white-space:nowrap}
+  .brand .tick{font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;opacity:.72;white-space:nowrap}
+  .me-btn{
+    display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.28); padding:6px 10px 6px 6px;border-radius:999px;
+    font-size:13px;font-weight:600;max-width:52%;
+  }
+  .me-btn .av{width:22px;height:22px;font-size:10px;box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
+  .me-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .me-btn .caret{opacity:.8;font-size:10px}
+  .today-line{margin-top:14px;font-size:13.5px;font-weight:500;opacity:.95;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .today-line b{font-weight:750}
+  .dotsep{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.6)}
+
+  /* segmented */
+  .seg{display:flex;gap:4px;margin:16px 16px 0;padding:4px;background:var(--o-100);border-radius:999px}
+  .seg button{flex:1;padding:9px 4px;border-radius:999px;font-size:13.5px;font-weight:650;color:var(--o-700);transition:background .18s,color .18s,box-shadow .18s}
+  .seg button[aria-selected="true"]{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(42,28,20,.12)}
+
+  /* chips */
+  .chips{display:flex;gap:7px;overflow-x:auto;padding:14px 16px 4px;scrollbar-width:none;-ms-overflow-style:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px 6px 7px;border-radius:999px;background:var(--white);border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+  .chip.only-text{padding-left:12px}
+  .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .chip .av{width:20px;height:20px;font-size:9.5px}
+
+  .card{background:var(--white);margin:14px 16px;border-radius:var(--r);border:1px solid var(--line);box-shadow:var(--shadow)}
+
+  /* calendar */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 6px}
+  .cal-head h2{margin:0;font-size:20px;font-weight:750;letter-spacing:-.4px}
+  .cal-head h2 em{font-style:normal;font-weight:400;color:var(--ink-3)}
+  .nav{display:flex;gap:6px}
+  .nav button{width:34px;height:34px;border-radius:11px;border:1px solid var(--line);display:grid;place-items:center;color:var(--ink-2);font-size:15px;background:var(--paper)}
+  .nav button:active{background:var(--o-100)}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);padding:6px 8px 2px;font-size:10.5px;font-weight:700;letter-spacing:.8px;color:var(--ink-3);text-align:center}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:2px 8px 12px}
+  .day{position:relative;aspect-ratio:1/1.12;border-radius:12px;display:flex;flex-direction:column;align-items:center;padding-top:5px;gap:3px;background:var(--paper);border:1px solid transparent;transition:transform .1s}
+  .day:active{transform:scale(.94)}
+  .day.pad{background:transparent;pointer-events:none}
+  .day.weekend{background:#FBF6F1}
+  .day .n{font-size:13px;font-weight:600;color:var(--ink)}
+  .day.past .n{color:var(--ink-3)}
+  .day.today{border-color:var(--o-500);background:var(--o-050)}
+  .day.today .n{color:var(--o-700);font-weight:800}
+  .day .stack{display:flex;gap:2px;align-items:center;justify-content:center;flex-wrap:wrap;padding:0 2px}
+  .day .av{width:17px;height:17px;font-size:8.5px}
+  .day .more{font-size:9.5px;font-weight:700;color:var(--ink-3)}
+  .day.solo-on{background:var(--o-500);border-color:var(--o-500)}
+  .day.solo-on .n{color:#fff;font-weight:750}
+  .day.solo-half{background:linear-gradient(160deg,var(--o-500) 0 50%,var(--o-100) 50% 100%);border-color:var(--o-500)}
+  .day.solo-half .n{color:#fff;font-weight:750}
+  .day .mine{position:absolute;bottom:4px;width:15px;height:3px;border-radius:2px;background:var(--maroon)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;padding:0 16px 4px;font-size:11.5px;color:var(--ink-3);font-weight:600}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  .av{border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:750;letter-spacing:.2px;flex:0 0 auto;line-height:1}
+
+  /* people */
+  .person{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .person:last-child{border-bottom:0}
+  .p-top{display:flex;align-items:center;gap:10px}
+  .p-top .av{width:34px;height:34px;font-size:12.5px}
+  .p-name{font-weight:700;font-size:15px;letter-spacing:-.2px}
+  .p-sub{font-size:12px;color:var(--ink-3);font-weight:600;margin-top:1px}
+  .p-count{margin-left:auto;text-align:right;font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.6px;text-transform:uppercase}
+  .p-count b{display:block;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
+  .strip{display:flex;gap:1.5px;margin:12px 0 9px;height:26px;align-items:stretch}
+  .strip i{flex:1;border-radius:3px;background:#F4EBE3;position:relative}
+  .strip i.we{background:#EFE6DE}
+  .strip i.on{background:var(--o-500)}
+  .strip i.half{background:linear-gradient(to top,var(--o-500) 0 50%,var(--o-100) 50% 100%)}
+  .strip i.today::after{content:"";position:absolute;left:50%;bottom:-6px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;background:var(--maroon)}
+  .strip-scale{display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--ink-3);letter-spacing:.6px;margin-top:-4px}
+  .dates{font-size:13.5px;color:var(--ink-2);line-height:1.6}
+  .dates b{color:var(--ink);font-weight:650}
+  .dates .half-tag{font-size:10.5px;font-weight:750;color:var(--o-700);letter-spacing:.4px}
+  .none{font-size:13px;color:var(--ink-3);font-style:italic}
+
+  /* sheet */
+  .scrim{position:fixed;inset:0;background:rgba(42,28,20,.42);z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--white);border-radius:24px 24px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(102%);transition:transform .28s cubic-bezier(.22,.9,.28,1);max-height:88vh;overflow-y:auto;max-width:560px;margin:0 auto;box-shadow:0 -10px 40px rgba(42,28,20,.2)}
+  .sheet.on{transform:translateY(0)}
+  .handle{width:38px;height:4px;border-radius:99px;background:var(--line);margin:2px auto 14px}
+  .sheet h3{margin:0 0 2px;font-size:20px;font-weight:750;letter-spacing:-.4px}
+  .sheet .sub{font-size:13px;color:var(--ink-3);font-weight:600;margin-bottom:16px}
+  .act{display:flex;flex-direction:column;gap:8px;margin:4px 0 6px}
+  .btn{width:100%;padding:14px;border-radius:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+  .btn.primary{background:var(--o-500);color:#fff}
+  .btn.primary:active{background:var(--o-600)}
+  .btn.ghost{background:var(--o-050);color:var(--o-700);border:1px solid var(--o-100)}
+  .btn.danger{background:#FFF1F2;color:#9F1239;border:1px solid #FFE0E3}
+  .btn.flat{background:var(--paper);color:var(--ink-2);border:1px solid var(--line)}
+  .btn[disabled]{opacity:.45;pointer-events:none}
+  .out-list{margin:0 0 18px;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+  .out-list li{display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:600}
+  .out-list .av{width:28px;height:28px;font-size:11px}
+  .out-list .tag{margin-left:auto;font-size:10.5px;font-weight:750;letter-spacing:.5px;text-transform:uppercase;color:var(--o-700);background:var(--o-050);padding:3px 8px;border-radius:999px}
+  .empty-out{font-size:14px;color:var(--ink-3);margin:0 0 18px}
+  .row-add{display:flex;gap:8px;margin:6px 0 14px}
+  .row-add input{flex:1;padding:13px 14px;border-radius:13px;border:1px solid var(--line);background:var(--paper);font-size:15px;min-width:0}
+  .row-add input:focus{border-color:var(--o-500);background:#fff;outline:none}
+  .row-add button{padding:0 18px;border-radius:13px;background:var(--ink);color:#fff;font-weight:700}
+  .mlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  .mlist li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .mlist li:last-child{border-bottom:0}
+  .mlist .av{width:30px;height:30px;font-size:11.5px}
+  .mlist .nm{font-weight:650;font-size:14.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mlist .you{font-size:10px;font-weight:750;letter-spacing:.6px;color:var(--o-700);background:var(--o-050);padding:3px 7px;border-radius:999px}
+  .mlist .pick{font-size:12.5px;font-weight:700;color:var(--o-700)}
+  .mlist .del{color:var(--ink-3);font-size:17px;padding:2px 4px;line-height:1}
+
+  .hint{padding:0 20px;font-size:12.5px;color:var(--ink-3);text-align:center;line-height:1.6}
+  .onboard{padding:22px 18px}
+  .onboard h2{margin:0 0 6px;font-size:22px;font-weight:750;letter-spacing:-.5px}
+  .onboard p{margin:0 0 16px;font-size:14px;color:var(--ink-2)}
+  .steps{list-style:none;margin:16px 0 0;padding:0;font-size:13.5px;color:var(--ink-2)}
+  .steps li{display:flex;gap:10px;padding:5px 0;align-items:flex-start}
+  .steps b{flex:0 0 auto;width:19px;height:19px;border-radius:6px;background:var(--o-100);color:var(--o-700);font-size:11px;display:grid;place-items:center;font-weight:800;margin-top:1px}
+  .skel{padding:60px 0;text-align:center;color:var(--ink-3);font-size:13.5px;font-weight:600}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:90;background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:650;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;box-shadow:0 8px 24px rgba(42,28,20,.28);max-width:88vw;text-align:center}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  .status{display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);padding:8px 16px 0}
+  .status i{width:6px;height:6px;border-radius:50%;background:var(--green);flex:0 0 auto}
+  .status i.wait{background:var(--o-500)}
+  .status i.bad{background:#DC2626}
+
+  /* setup screen */
+  .setup{padding:22px 18px}
+  .setup h2{margin:0 0 8px;font-size:21px;font-weight:750;letter-spacing:-.4px}
+  .setup p{font-size:14px;color:var(--ink-2);margin:0 0 12px}
+  .setup code{background:var(--o-050);border:1px solid var(--o-100);color:var(--o-700);padding:2px 6px;border-radius:6px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="top-row">
+      <div class="brand">
+        <h1>Team Leaves</h1>
+        <span class="tick" id="teamSize"></span>
+      </div>
+      <button class="me-btn" id="meBtn" aria-label="Change who you are">
+        <span class="av" id="meAv">?</span><span id="meName">Pick your name</span><span class="caret">▾</span>
+      </button>
+    </div>
+    <div class="today-line" id="todayLine"></div>
+  </header>
+
+  <div id="body"><div class="skel">Connecting to your team…</div></div>
+  <div class="status" id="statusNote"></div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* ═══════════════════════════════════════════════════════════
+   ①  PASTE YOUR FIREBASE CONFIG HERE
+   Firebase console → Project settings → Your apps → Web app
+   These six values are meant to be public. Safe to commit.
+   ═══════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:            "AIzaSyAuD0vD6OoXH7fK-zhyDsSNvwU2jb_GaRU",
+  authDomain:        "team-leaves-270f6.firebaseapp.com",
+  projectId:         "team-leaves-270f6",
+  storageBucket:     "team-leaves-270f6.firebasestorage.app",
+  messagingSenderId: "241879513784",
+  appId:             "1:241879513784:web:013ceeecfd42d469aa524d"
+};
+
+/* One shared team. Change only if you ever want a second,
+   separate team using the same Firebase project. */
+const TEAM_ID = "main";
+
+/* ═══════════════════════════════════════════════════════════
+   ②  Firebase setup
+   ═══════════════════════════════════════════════════════════ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  doc, onSnapshot, setDoc, runTransaction, deleteField
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const CONFIGURED = !String(firebaseConfig.apiKey).startsWith("PASTE_");
+let db = null, auth = null;
+
+if (CONFIGURED) {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  // Offline cache. Data survives no-signal AND survives the browser
+  // clearing it, because the server is the source of truth.
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+}
+
+const rosterRef = () => doc(db, "teams", TEAM_ID, "meta", "roster");
+const yearRef   = (y) => doc(db, "teams", TEAM_ID, "years", String(y));
+
+/* ═══════════════════════════════════════════════════════════
+   ③  State
+   ═══════════════════════════════════════════════════════════ */
+let roster = [];            // [{id, name, color}]
+let yearData = {};          // { 2026: { memberId: { "2026-08-12": "full" } } }
+let leaves = {};            // flattened: { memberId: { dateKey: type } }
+let meId = null;
+let view = "calendar";
+let filter = "all";
+let cursor = startOfMonth(new Date());
+let ready = false;
+let subscribed = new Set();
+let net = { online: navigator.onLine, cached: false, pending: 0, error: null };
+let openSheet_ = null;      // {type:"day", k} | {type:"team"} | null
+
+const COLORS = ["#F37E20","#8A1538","#B45309","#0F766E","#9A3412","#1D4ED8",
+                "#166534","#BE185D","#6D28D9","#A16207","#7C2D12","#0E7490"];
+const DOW = ["M","T","W","T","F","S","S"];
+const MONTHS = ["January","February","March","April","May","June","July",
+                "August","September","October","November","December"];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/* ═══════════════════════════════════════════════════════════
+   ④  Dates — all local, no timezone surprises
+   ═══════════════════════════════════════════════════════════ */
+function pad(n){ return n < 10 ? "0"+n : ""+n; }
+function key(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function parse(k){ const p = k.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+function addMonths(d,n){ return new Date(d.getFullYear(), d.getMonth()+n, 1); }
+function daysInMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); }
+function todayKey(){ return key(new Date()); }
+function isWeekend(d){ const g = d.getDay(); return g === 0 || g === 6; }
+function mondayIndex(d){ return (d.getDay()+6)%7; }
+function nextDayKey(k){ const d = parse(k); d.setDate(d.getDate()+1); return key(d); }
+function longDate(k){
+  const d = parse(k);
+  const wd = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];
+  return wd+", "+d.getDate()+" "+MON[d.getMonth()]+" "+d.getFullYear();
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ═══════════════════════════════════════════════════════════
+   ⑤  Members
+   ═══════════════════════════════════════════════════════════ */
+function initials(name){
+  const p = String(name).trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return "?";
+  if(p.length === 1) return p[0].slice(0,2).toUpperCase();
+  return (p[0][0]+p[p.length-1][0]).toUpperCase();
+}
+function member(id){ return roster.find(m => m.id === id) || null; }
+function me(){ return member(meId); }
+function avatar(m, cls){
+  return `<span class="av ${cls||""}" style="background:${m.color}">${esc(initials(m.name))}</span>`;
+}
+function outOn(k){
+  const list = [];
+  for(const m of roster){
+    const t = leaves[m.id] && leaves[m.id][k];
+    if(t) list.push({ m, type:t });
+  }
+  return list;
+}
+function upcoming(id){
+  const t = todayKey();
+  return Object.keys(leaves[id] || {}).sort().filter(k => k >= t);
+}
+function newId(){ return "m"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+/* ═══════════════════════════════════════════════════════════
+   ⑥  Live sync
+   ═══════════════════════════════════════════════════════════ */
+function rebuildLeaves(){
+  leaves = {};
+  for(const y of Object.keys(yearData)){
+    const byMember = yearData[y] || {};
+    for(const mid of Object.keys(byMember)){
+      leaves[mid] = Object.assign(leaves[mid] || {}, byMember[mid] || {});
+    }
+  }
+}
+
+function watchRoster(){
+  onSnapshot(rosterRef(),
+    snap => {
+      const d = snap.exists() ? snap.data() : {};
+      roster = Array.isArray(d.members) ? d.members : [];
+      net.cached = snap.metadata.fromCache;
+      net.error = null;
+      ready = true;
+      const stored = localStorage_get("me");
+      meId = (stored && member(stored)) ? stored : null;
+      render();
+    },
+    err => { net.error = err.code || "unavailable"; ready = true; render(); }
+  );
+}
+
+function watchYear(y){
+  y = String(y);
+  if(subscribed.has(y)) return;
+  subscribed.add(y);
+  onSnapshot(yearRef(y),
+    snap => {
+      const d = snap.exists() ? snap.data() : {};
+      yearData[y] = d.days || {};
+      net.cached = snap.metadata.fromCache;
+      net.pending = snap.metadata.hasPendingWrites ? 1 : 0;
+      rebuildLeaves();
+      render();
+    },
+    err => { net.error = err.code || "unavailable"; render(); }
+  );
+}
+
+/* localStorage is used ONLY for "which name am I" — a preference,
+   not data. If the browser wipes it you just re-tap your name;
+   no leaves are ever lost, because leaves live on the server. */
+function localStorage_get(k){ try { return localStorage.getItem("tl:"+k); } catch(e){ return null; } }
+function localStorage_set(k,v){ try { localStorage.setItem("tl:"+k, v); } catch(e){} }
+function localStorage_del(k){ try { localStorage.removeItem("tl:"+k); } catch(e){} }
+
+/* ═══════════════════════════════════════════════════════════
+   ⑦  Writes
+   ═══════════════════════════════════════════════════════════ */
+async function setLeave(id, k, type){
+  const y = k.slice(0,4);
+  watchYear(y);
+  // Field-level merge: two people editing different dates, or different
+  // people's rows, never overwrite each other.
+  const payload = { days: { [id]: { [k]: type ? type : deleteField() } } };
+  // optimistic local update so the UI never feels laggy
+  yearData[y] = yearData[y] || {};
+  yearData[y][id] = yearData[y][id] || {};
+  if(type) yearData[y][id][k] = type; else delete yearData[y][id][k];
+  rebuildLeaves();
+  try { await setDoc(yearRef(y), payload, { merge:true }); }
+  catch(e){ toast("Couldn't save — check your connection"); }
+}
+
+async function addMember(name){
+  name = String(name||"").trim().replace(/\s+/g," ");
+  if(!name) return null;
+  if(roster.some(m => m.name.toLowerCase() === name.toLowerCase())){
+    toast(esc(name)+" is already on the list"); return null;
+  }
+  let created = null;
+  try {
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(rosterRef());
+      const cur = (snap.exists() && Array.isArray(snap.data().members)) ? snap.data().members : [];
+      if(cur.some(m => m.name.toLowerCase() === name.toLowerCase())) return;
+      created = { id:newId(), name, color:COLORS[cur.length % COLORS.length] };
+      tx.set(rosterRef(), { members: cur.concat([created]) }, { merge:true });
+    });
+  } catch(e){
+    toast("Adding people needs internet. Marking leaves works offline.");
+    return null;
+  }
+  return created;
+}
+
+async function removeMember(id){
+  try {
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(rosterRef());
+      const cur = (snap.exists() && Array.isArray(snap.data().members)) ? snap.data().members : [];
+      tx.set(rosterRef(), { members: cur.filter(m => m.id !== id) }, { merge:true });
+    });
+    for(const y of subscribed){
+      await setDoc(yearRef(y), { days: { [id]: deleteField() } }, { merge:true });
+    }
+  } catch(e){ toast("Removing people needs internet."); return; }
+  if(meId === id){ meId = null; localStorage_del("me"); }
+  if(filter === id) filter = "all";
+}
+
+function exportJSON(){
+  const data = { exported:new Date().toISOString(), team:TEAM_ID, members:roster, leaves };
+  const blob = new Blob([JSON.stringify(data,null,2)], { type:"application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "team-leaves-"+todayKey()+".json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("Backup downloaded");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ⑧  Render
+   ═══════════════════════════════════════════════════════════ */
+const $body = document.getElementById("body");
+
+function render(){
+  if(!CONFIGURED){ renderTop(); $body.innerHTML = setupHTML(); return; }
+  renderTop();
+  renderStatus();
+  if(!ready) return;
+  if(!roster.length){ $body.innerHTML = onboardHTML(); return; }
+  $body.innerHTML = segHTML() + chipsHTML()
+    + (view === "calendar" ? calendarHTML() : peopleHTML()) + footHTML();
+  if(openSheet_) refreshSheet();
+}
+
+function renderTop(){
+  const m = me();
+  document.getElementById("meAv").outerHTML =
+    `<span class="av" id="meAv" style="background:${m ? m.color : "rgba(255,255,255,.3)"}">${m ? esc(initials(m.name)) : "+"}</span>`;
+  document.getElementById("meName").textContent = m ? m.name : "Pick your name";
+  document.getElementById("teamSize").textContent =
+    roster.length ? roster.length+(roster.length === 1 ? " person" : " people") : "";
+
+  const line = document.getElementById("todayLine");
+  if(!CONFIGURED){ line.innerHTML = "Almost there — one setup step left."; return; }
+  const out = outOn(todayKey());
+  if(!roster.length) line.innerHTML = "Set up your team once — everyone marks their own leaves.";
+  else if(!out.length) line.innerHTML = "<b>Everyone's in today.</b>";
+  else line.innerHTML = `<b>${out.length}${out.length === 1 ? " person" : " people"} out today</b>`
+    + `<span class="dotsep"></span>`
+    + out.map(o => esc(o.m.name.split(" ")[0]) + (o.type === "half" ? " (half)" : "")).join(", ");
+}
+
+function renderStatus(){
+  const s = document.getElementById("statusNote");
+  if(net.error === "permission-denied")
+    s.innerHTML = `<i class="bad"></i> Access denied — check your security rules`;
+  else if(net.error)
+    s.innerHTML = `<i class="bad"></i> Can't reach the server — showing saved data`;
+  else if(!net.online)
+    s.innerHTML = `<i class="wait"></i> Offline — your changes will sync automatically`;
+  else if(net.pending)
+    s.innerHTML = `<i class="wait"></i> Saving…`;
+  else if(net.cached)
+    s.innerHTML = `<i class="wait"></i> Reconnecting — showing saved data`;
+  else
+    s.innerHTML = `<i></i> Synced with your team`;
+}
+
+function setupHTML(){
+  return `<div class="card setup">
+    <h2>One step to go</h2>
+    <p>Open this file in a text editor and paste your six Firebase values into the block marked
+    <code>PASTE YOUR FIREBASE CONFIG HERE</code> at the top of the script.</p>
+    <p>You'll find them in the Firebase console under <b>Project settings → Your apps → Web app</b>.
+    They're designed to be public, so it's fine that they sit in this file.</p>
+    <p style="margin-bottom:0">Save, reload, and the app will connect itself.</p>
+  </div>`;
+}
+
+function onboardHTML(){
+  return `<div class="card onboard">
+    <h2>Add your team</h2>
+    <p>Do this once, on one phone. Everyone else will see the names appear automatically.</p>
+    <div class="row-add"><input id="obInput" placeholder="e.g. Priya Sharma" autocomplete="off"><button data-act="ob-add">Add</button></div>
+    <ul class="steps">
+      <li><b>1</b><span>Add everyone on the team</span></li>
+      <li><b>2</b><span>Each person taps their own name in the top corner</span></li>
+      <li><b>3</b><span>Tap any future date to mark leave</span></li>
+    </ul></div>`;
+}
+
+function segHTML(){
+  return `<div class="seg" role="tablist">
+    <button role="tab" data-act="view" data-v="calendar" aria-selected="${view==="calendar"}">Calendar</button>
+    <button role="tab" data-act="view" data-v="people" aria-selected="${view==="people"}">By person</button>
+  </div>`;
+}
+
+function chipsHTML(){
+  let h = `<div class="chips"><button class="chip only-text" data-act="filter" data-id="all" aria-pressed="${filter==="all"}">Whole team</button>`;
+  for(const m of roster)
+    h += `<button class="chip" data-act="filter" data-id="${m.id}" aria-pressed="${filter===m.id}">${avatar(m)}${esc(m.name.split(" ")[0])}</button>`;
+  return h+`</div>`;
+}
+
+function calendarHTML(){
+  const y = cursor.getFullYear(), mo = cursor.getMonth();
+  const lead = mondayIndex(new Date(y, mo, 1));
+  const total = daysInMonth(cursor);
+  const tk = todayKey();
+  const solo = filter !== "all" ? filter : null;
+
+  let h = `<div class="card">
+    <div class="cal-head"><h2>${MONTHS[mo]} <em>${y}</em></h2>
+    <div class="nav">
+      <button data-act="mo" data-d="-1" aria-label="Previous month">‹</button>
+      <button data-act="mo" data-d="0" aria-label="This month">•</button>
+      <button data-act="mo" data-d="1" aria-label="Next month">›</button>
+    </div></div>
+    <div class="dow">${DOW.map(d => `<span>${d}</span>`).join("")}</div>
+    <div class="grid">`;
+
+  for(let i=0;i<lead;i++) h += `<div class="day pad"></div>`;
+
+  for(let d=1; d<=total; d++){
+    const date = new Date(y, mo, d), k = key(date);
+    const cls = ["day"];
+    if(isWeekend(date)) cls.push("weekend");
+    if(k === tk) cls.push("today");
+    if(k < tk) cls.push("past");
+    let inner = `<span class="n">${d}</span>`;
+    if(solo){
+      const t = leaves[solo] && leaves[solo][k];
+      if(t === "full") cls.push("solo-on");
+      if(t === "half") cls.push("solo-half");
+    } else {
+      const out = outOn(k);
+      if(out.length){
+        inner += `<span class="stack">${out.slice(0,3).map(o => avatar(o.m)).join("")}`
+              + (out.length > 3 ? `<span class="more">+${out.length-3}</span>` : "")+`</span>`;
+      }
+      if(meId && leaves[meId] && leaves[meId][k]) inner += `<span class="mine"></span>`;
+    }
+    h += `<button class="${cls.join(" ")}" data-act="day" data-k="${k}">${inner}</button>`;
+  }
+  h += `</div></div>`;
+
+  h += `<div class="legend">` + (solo
+    ? `<span><i style="background:var(--o-500)"></i>${esc(member(solo).name.split(" ")[0])} on leave</span>`
+    : `<span><i style="background:var(--o-500)"></i>Whose initials show = who is out</span>`
+      + (meId ? `<span><i style="background:var(--maroon)"></i>Bar under a date = your leave</span>` : "")
+  ) + `</div>`;
+  return h;
+}
+
+function rangeText(id){
+  const ks = upcoming(id);
+  if(!ks.length) return `<span class="none">No leaves coming up</span>`;
+  const groups = []; let cur = null;
+  for(const k of ks){
+    const t = leaves[id][k];
+    if(cur && cur.type === t && nextDayKey(cur.end) === k){ cur.end = k; continue; }
+    cur = { start:k, end:k, type:t };
+    groups.push(cur);
+  }
+  return groups.map(g => {
+    const a = parse(g.start), b = parse(g.end);
+    let txt;
+    if(g.start === g.end) txt = a.getDate()+" "+MON[a.getMonth()];
+    else if(a.getMonth() === b.getMonth()) txt = a.getDate()+"–"+b.getDate()+" "+MON[b.getMonth()];
+    else txt = a.getDate()+" "+MON[a.getMonth()]+" – "+b.getDate()+" "+MON[b.getMonth()];
+    const days = Math.round((b-a)/86400000)+1;
+    return `<b>${txt}</b>`
+      + (days > 1 ? ` <span class="half-tag">${days} DAYS</span>` : "")
+      + (g.type === "half" ? ` <span class="half-tag">HALF DAY</span>` : "");
+  }).join(" &nbsp;·&nbsp; ");
+}
+
+function stripHTML(id){
+  const y = cursor.getFullYear(), mo = cursor.getMonth();
+  const total = daysInMonth(cursor), tk = todayKey();
+  let h = `<div class="strip">`;
+  for(let d=1; d<=total; d++){
+    const date = new Date(y, mo, d), k = key(date);
+    const t = leaves[id] && leaves[id][k];
+    let c = t === "full" ? "on" : (t === "half" ? "half" : (isWeekend(date) ? "we" : ""));
+    if(k === tk) c += " today";
+    h += `<i class="${c}"></i>`;
+  }
+  h += `</div><div class="strip-scale"><span>1</span><span>${MON[mo].toUpperCase()} ${y}</span><span>${total}</span></div>`;
+  return h;
+}
+
+function peopleHTML(){
+  const list = filter === "all" ? roster : roster.filter(m => m.id === filter);
+  let h = `<div class="card">`;
+  for(const m of list){
+    const up = upcoming(m.id).length;
+    const t = leaves[m.id] && leaves[m.id][todayKey()];
+    h += `<div class="person">
+      <div class="p-top">${avatar(m)}
+        <div><div class="p-name">${esc(m.name)}${m.id===meId ? " · you" : ""}</div>
+        <div class="p-sub">${t ? (t === "half" ? "Half day today" : "On leave today") : "In today"}</div></div>
+        <div class="p-count"><b>${up}</b>upcoming</div>
+      </div>${stripHTML(m.id)}
+      <div class="dates">${rangeText(m.id)}</div></div>`;
+  }
+  h += `</div><div class="legend"><span>The strip shows ${MON[cursor.getMonth()]} day by day. Use ‹ › on the calendar tab to change month.</span></div>`;
+  return h;
+}
+
+function footHTML(){
+  return `<div class="card" style="padding:12px 14px;display:flex;gap:8px">
+      <button class="btn flat" data-act="team">Manage team</button>
+      <button class="btn flat" data-act="export">Backup</button>
+    </div>
+    <p class="hint">Everyone marks their own leaves. Nothing here is approval — it's just so the team knows who's out.</p>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ⑨  Sheets
+   ═══════════════════════════════════════════════════════════ */
+const $sheet = document.getElementById("sheet"), $scrim = document.getElementById("scrim");
+
+function showSheet(html){
+  $sheet.innerHTML = `<div class="handle"></div>`+html;
+  $sheet.classList.add("on"); $scrim.classList.add("on");
+}
+function closeSheet(){
+  openSheet_ = null;
+  $sheet.classList.remove("on"); $scrim.classList.remove("on");
+}
+function refreshSheet(){
+  if(!openSheet_) return;
+  if(openSheet_.type === "day"){ showSheet(daySheetHTML(openSheet_.k)); return; }
+  // Someone else's change shouldn't erase what you're halfway through typing.
+  const old = document.getElementById("tmInput");
+  const draft = old ? old.value : "";
+  const hadFocus = old && document.activeElement === old;
+  showSheet(teamSheetHTML());
+  const now = document.getElementById("tmInput");
+  if(now){ now.value = draft; if(hadFocus) now.focus(); }
+}
+$scrim.addEventListener("click", closeSheet);
+
+function daySheetHTML(k){
+  const out = outOn(k);
+  const mine = meId && leaves[meId] ? leaves[meId][k] : null;
+  const past = k < todayKey();
+  const m = me();
+
+  let h = `<h3>${longDate(k)}</h3>
+    <div class="sub">${out.length ? out.length+(out.length===1?" person":" people")+" out" : "Nobody on leave"}</div>`;
+
+  h += out.length
+    ? `<ul class="out-list">${out.map(o =>
+        `<li>${avatar(o.m)}<span>${esc(o.m.name)}</span>${o.type === "half" ? `<span class="tag">Half day</span>` : ""}</li>`
+      ).join("")}</ul>`
+    : `<p class="empty-out">Full team available.</p>`;
+
+  h += `<div class="act">`;
+  if(!m) h += `<button class="btn primary" data-act="team">Pick your name first</button>`;
+  else if(past) h += `<button class="btn flat" disabled>Past dates can't be changed</button>`;
+  else if(mine){
+    h += `<button class="btn danger" data-act="clear" data-k="${k}">Remove my leave</button>`;
+    h += `<button class="btn ghost" data-act="mark" data-k="${k}" data-t="${mine==="full"?"half":"full"}">Change to ${mine==="full"?"half day":"full day"}</button>`;
+  } else {
+    h += `<button class="btn primary" data-act="mark" data-k="${k}" data-t="full">Mark my leave · ${esc(m.name.split(" ")[0])}</button>`;
+    h += `<button class="btn ghost" data-act="mark" data-k="${k}" data-t="half">Half day only</button>`;
+  }
+  return h+`</div>`;
+}
+
+function teamSheetHTML(){
+  let h = `<h3>Your team</h3>
+    <div class="sub">Tap a name to say "this is me".</div>
+    <div class="row-add"><input id="tmInput" placeholder="Add a name" autocomplete="off"><button data-act="tm-add">Add</button></div>
+    <ul class="mlist">`;
+  for(const m of roster){
+    h += `<li>${avatar(m)}<span class="nm">${esc(m.name)}</span>`
+      + (m.id === meId ? `<span class="you">YOU</span>`
+         : `<button class="pick" data-act="setme" data-id="${m.id}">This is me</button>`)
+      + `<button class="del" data-act="rm" data-id="${m.id}" aria-label="Remove ${esc(m.name)}">✕</button></li>`;
+  }
+  h += `</ul><div class="act" style="margin-top:16px">
+    <button class="btn flat" data-act="export">Download a backup</button>
+    <button class="btn flat" data-act="close">Done</button></div>`;
+  return h;
+}
+
+function openDay(k){ openSheet_ = { type:"day", k }; showSheet(daySheetHTML(k)); }
+function openTeam(){
+  openSheet_ = { type:"team" };
+  showSheet(teamSheetHTML());
+  const i = document.getElementById("tmInput"); if(i) i.focus();
+}
+
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.innerHTML = msg; t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 2400);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ⑩  Events
+   ═══════════════════════════════════════════════════════════ */
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]");
+  if(!el) return;
+  const act = el.getAttribute("data-act");
+
+  if(act === "view"){ view = el.getAttribute("data-v"); render(); return; }
+  if(act === "filter"){ filter = el.getAttribute("data-id"); render(); return; }
+
+  if(act === "mo"){
+    const d = +el.getAttribute("data-d");
+    cursor = d === 0 ? startOfMonth(new Date()) : addMonths(cursor, d);
+    watchYear(cursor.getFullYear());
+    render(); return;
+  }
+
+  if(act === "day"){ openDay(el.getAttribute("data-k")); return; }
+
+  if(act === "mark"){
+    const k = el.getAttribute("data-k"), t = el.getAttribute("data-t");
+    closeSheet();
+    await setLeave(meId, k, t);
+    render();
+    toast((t === "half" ? "Half day" : "Leave")+" marked for "+longDate(k).split(",")[1].trim());
+    return;
+  }
+  if(act === "clear"){
+    const k = el.getAttribute("data-k");
+    closeSheet();
+    await setLeave(meId, k, null);
+    render(); toast("Leave removed"); return;
+  }
+
+  if(act === "team"){ openTeam(); return; }
+  if(act === "close"){ closeSheet(); render(); return; }
+  if(act === "export"){ exportJSON(); return; }
+
+  if(act === "setme"){
+    meId = el.getAttribute("data-id");
+    localStorage_set("me", meId);
+    refreshSheet(); render();
+    toast("Hi "+esc(me().name.split(" ")[0])+" — tap dates to mark your leave");
+    return;
+  }
+
+  if(act === "rm"){
+    const id = el.getAttribute("data-id"), mm = member(id);
+    if(!mm) return;
+    if(!confirm("Remove "+mm.name+" and all their marked leaves?")) return;
+    await removeMember(id);
+    refreshSheet(); render(); return;
+  }
+
+  if(act === "tm-add"){
+    const inp = document.getElementById("tmInput");
+    const added = await addMember(inp.value);
+    if(added){ inp.value = ""; }
+    inp.focus(); return;
+  }
+  if(act === "ob-add"){
+    const inp = document.getElementById("obInput");
+    const added = await addMember(inp.value);
+    if(added) openTeam();
+    return;
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape") closeSheet();
+  if(e.key === "Enter"){
+    if(e.target && e.target.id === "tmInput") document.querySelector('[data-act="tm-add"]')?.click();
+    if(e.target && e.target.id === "obInput") document.querySelector('[data-act="ob-add"]')?.click();
+  }
+});
+
+document.getElementById("meBtn").addEventListener("click", openTeam);
+window.addEventListener("online",  () => { net.online = true;  renderStatus(); });
+window.addEventListener("offline", () => { net.online = false; renderStatus(); });
+
+/* ═══════════════════════════════════════════════════════════
+   ⑪  Go
+   ═══════════════════════════════════════════════════════════ */
+if(!CONFIGURED){
+  render();
+} else {
+  onAuthStateChanged(auth, user => {
+    if(!user) return;
+    watchRoster();
+    const thisYear = new Date().getFullYear();
+    watchYear(thisYear);
+    watchYear(thisYear+1);   // so December planning for January works
+  });
+  signInAnonymously(auth).catch(() => {
+    net.error = "auth";
+    ready = true;
+    $body.innerHTML = `<div class="card setup"><h2>Sign-in is switched off</h2>
+      <p>In the Firebase console, go to <b>Authentication → Sign-in method</b> and enable
+      <b>Anonymous</b>. Then reload this page.</p></div>`;
+    renderStatus();
+  });
+}
+
+// Offline shell — so the app opens with no signal at all
+if("serviceWorker" in navigator && location.protocol === "https:"){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+// Ask the browser to exempt this app from low-storage eviction.
+// Chrome usually grants it silently once the app is installed. Safari is
+// less reliable, which is why adding to the home screen still matters.
+if(navigator.storage && navigator.storage.persist){
+  navigator.storage.persisted()
+    .then(already => already ? true : navigator.storage.persist())
+    .catch(() => {});
+}
+</script>
+</body>
+</html>
