@@ -83,8 +83,6 @@
   .day .more{font-size:9.5px;font-weight:700;color:var(--ink-3)}
   .day.solo-on{background:var(--o-500);border-color:var(--o-500)}
   .day.solo-on .n{color:#fff;font-weight:750}
-  .day.solo-half{background:linear-gradient(160deg,var(--o-500) 0 50%,var(--o-100) 50% 100%);border-color:var(--o-500)}
-  .day.solo-half .n{color:#fff;font-weight:750}
   .day .mine{position:absolute;bottom:4px;width:15px;height:3px;border-radius:2px;background:var(--maroon)}
   .legend{display:flex;gap:14px;flex-wrap:wrap;padding:0 16px 4px;font-size:11.5px;color:var(--ink-3);font-weight:600}
   .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
@@ -126,7 +124,6 @@
   .out-list{margin:0 0 18px;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
   .out-list li{display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:600}
   .out-list .av{width:28px;height:28px;font-size:11px}
-  .out-list .tag{margin-left:auto;font-size:10.5px;font-weight:750;letter-spacing:.5px;text-transform:uppercase;color:var(--o-700);background:var(--o-050);padding:3px 8px;border-radius:999px}
   .empty-out{font-size:14px;color:var(--ink-3);margin:0 0 18px}
   .fld{margin:0 0 12px}
   .fld label{display:block;font-size:10.5px;font-weight:750;letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
@@ -469,6 +466,30 @@ async function addMember(name){
   } catch(e){ toast("Adding people needs internet."); return null; }
 }
 
+async function renameMember(id, name){
+  if(!iAmLead()){ toast("Only the team lead can edit names"); return false; }
+  name = String(name||"").trim().replace(/\s+/g," ");
+  if(!name){ toast("Enter a name"); return false; }
+  const existing = member(id);
+  if(!existing) return false;
+  if(name === existing.name) return true;
+  if(roster().some(m => m.id !== id && m.name.toLowerCase() === name.toLowerCase())){
+    toast("Someone else on this team already has that name"); return false;
+  }
+  try {
+    await runTransaction(db, async tx => {
+      const ref = doc(db, "teams", tid);
+      const snap = await tx.get(ref);
+      if(!snap.exists()) throw new Error("gone");
+      const cur = Array.isArray(snap.data().members) ? snap.data().members : [];
+      tx.set(ref, { members: cur.map(m => m.id === id ? Object.assign({}, m, { name }) : m) },
+             { merge:true });
+    });
+    toast("Name updated");
+    return true;
+  } catch(e){ toast("Editing names needs internet."); return false; }
+}
+
 async function removeMember(id){
   if(id === teamDoc.leadId){ toast("Hand over the lead role first"); return; }
   try {
@@ -484,6 +505,19 @@ async function removeMember(id){
     if(filter === id) filter = "all";
     toast("Removed");
   } catch(e){ toast("Removing people needs internet."); }
+}
+
+async function renameTeam(name){
+  name = String(name||"").trim().replace(/\s+/g," ");
+  if(!name){ toast("Give the team a name"); return; }
+  if(name.length > 79){ toast("That name is too long"); return; }
+  if(name === teamDoc.name) return;
+  if(!iAmLead()){ toast("Only the team lead can rename the team"); return; }
+  try {
+    await setDoc(doc(db, "teams", tid), { name }, { merge:true });
+    rememberTeam(tid, name);
+    toast("Renamed to "+esc(name));
+  } catch(e){ toast("Couldn't rename. Needs internet."); }
 }
 
 async function makeLead(id){
@@ -567,7 +601,7 @@ function renderTop(){
   const out = outOn(todayKey());
   line.innerHTML = out.length
     ? `<b>${out.length}${out.length === 1 ? " person" : " people"} out today</b><span class="dotsep"></span>`
-      + out.map(o => esc(o.m.name.split(" ")[0]) + (o.type === "half" ? " (half)" : "")).join(", ")
+      + out.map(o => esc(o.m.name.split(" ")[0])).join(", ")
     : "<b>Everyone's in today.</b>";
 }
 
@@ -665,9 +699,7 @@ function calendarHTML(){
     if(k < tk) cls.push("past");
     let inner = `<span class="n">${d}</span>`;
     if(solo){
-      const t = daysOf(solo)[k];
-      if(t === "full") cls.push("solo-on");
-      if(t === "half") cls.push("solo-half");
+      if(daysOf(solo)[k]) cls.push("solo-on");
     } else {
       const out = outOn(k);
       if(out.length) inner += `<span class="stack">${out.slice(0,3).map(o => avatar(o.m)).join("")}`
@@ -707,8 +739,7 @@ function upcomingList(id){
       label = WD[a.getDay()]+" "+a.getDate()+" "+MON[a.getMonth()]+yr(a)
             +" – "+WD[b.getDay()]+" "+b.getDate()+" "+MON[b.getMonth()]+yr(b);
     }
-    const meta = g.type === "half" ? "Half day" : "";
-    return { label, meta, today: g.start === todayKey(), half: g.type === "half" };
+    return { label, today: g.start === todayKey() };
   });
 }
 
@@ -720,14 +751,13 @@ function peopleHTML(){
     const t = daysOf(m.id)[todayKey()];
     h += `<div class="person"><div class="p-top">${avatar(m)}
       <div><div class="p-name">${esc(m.name)}${m.id===meId ? " · you" : ""}${teamDoc.leadId===m.id ? " ★" : ""}</div>
-      <div class="p-sub">${t ? (t === "half" ? "Half day today" : "On leave today") : "In today"}</div></div>
+      <div class="p-sub">${t ? "On leave today" : "In today"}</div></div>
       <div class="p-count"><b>${rows.length}</b>upcoming</div></div>`;
     if(rows.length){
       h += `<ul class="llist">`;
       for(const r of rows)
         h += `<li><span class="ld">${esc(r.label)}</span>${
-          r.today ? `<span class="lt hi">Today</span>` : ""}${
-          r.meta ? `<span class="lt${r.half ? " hi" : ""}">${esc(r.meta)}</span>` : ""}</li>`;
+          r.today ? `<span class="lt hi">Today</span>` : ""}</li>`;
       h += `</ul>`;
     } else {
       h += `<div class="none">No leaves coming up</div>`;
@@ -762,14 +792,18 @@ function refreshSheet(){
   const t = openSheet_.type;
   if(t === "day"){ showSheet(daySheetHTML(openSheet_.k)); return; }
   if(t === "share"){ showSheet(shareSheetHTML()); return; }
-  if(t === "newteam") return;              // never clobber a form mid-typing
+  if(t === "newteam" || t === "editmember") return;   // never clobber a form mid-typing
   if(t === "manage"){
-    const i = document.getElementById("amName");
-    const draft = i ? i.value : "";
-    const had = document.activeElement === i;
+    const keep = {};
+    for(const id of ["amName","tmRename"]){
+      const el = document.getElementById(id);
+      if(el) keep[id] = { v:el.value, focused:document.activeElement === el };
+    }
     showSheet(manageSheetHTML());
-    const i2 = document.getElementById("amName");
-    if(i2){ i2.value = draft; if(had) i2.focus(); }
+    for(const id of Object.keys(keep)){
+      const el = document.getElementById(id);
+      if(el){ el.value = keep[id].v; if(keep[id].focused) el.focus(); }
+    }
   }
 }
 
@@ -781,8 +815,7 @@ function daySheetHTML(k){
   let h = `<h3>${longDate(k)}</h3>
     <div class="sub">${out.length ? out.length+(out.length===1?" person":" people")+" out" : "Nobody on leave"} · ${esc(teamDoc.name)}</div>`;
   h += out.length
-    ? `<ul class="out-list">${out.map(o => `<li>${avatar(o.m)}<span>${esc(o.m.name)}</span>${
-        o.type === "half" ? `<span class="tag">Half day</span>` : ""}</li>`).join("")}</ul>`
+    ? `<ul class="out-list">${out.map(o => `<li>${avatar(o.m)}<span>${esc(o.m.name)}</span></li>`).join("")}</ul>`
     : `<p class="empty-out">Full team available.</p>`;
 
   h += `<div class="act">`;
@@ -790,10 +823,8 @@ function daySheetHTML(k){
   else if(past) h += `<button class="btn flat" disabled>Past dates can't be changed</button>`;
   else if(mine){
     h += `<button class="btn danger" data-act="clear" data-k="${k}">Remove my leave</button>`;
-    h += `<button class="btn ghost" data-act="mark" data-k="${k}" data-t="${mine==="full"?"half":"full"}">Change to ${mine==="full"?"half day":"full day"}</button>`;
   } else {
     h += `<button class="btn primary" data-act="mark" data-k="${k}" data-t="full">Mark my leave · ${esc(me().name.split(" ")[0])}</button>`;
-    h += `<button class="btn ghost" data-act="mark" data-k="${k}" data-t="half">Half day only</button>`;
   }
   return h+`</div>`;
 }
@@ -804,6 +835,9 @@ function manageSheetHTML(){
     <div class="sub">${roster().length} ${roster().length===1?"person":"people"} · lead is ${esc(leadName())}</div>`;
 
   if(lead){
+    h += `<div class="fld"><label>Team name</label>
+      <input id="tmRename" value="${esc(teamDoc.name)}" autocomplete="off"></div>
+      <div class="act" style="margin-bottom:18px"><button class="btn flat" data-act="tm-rename">Save name</button></div>`;
     h += `<div class="fld"><label>Add someone</label>
       <input id="amName" placeholder="Their full name" autocomplete="off"></div>
       <div class="act" style="margin-bottom:14px"><button class="btn primary" data-act="am-add">Add to ${esc(teamDoc.name)}</button></div>`;
@@ -816,6 +850,7 @@ function manageSheetHTML(){
       m.id===meId ? `<span>This is you on this phone</span>` : ""}</div>`;
     if(isLead) h += `<span class="lead">LEAD</span>`;
     if(m.id !== meId && !isLead) h += `<button class="pick" data-act="setme" data-id="${m.id}">I'm ${esc(m.name.split(" ")[0])}</button>`;
+    if(lead) h += `<button class="mini" data-act="editm" data-id="${m.id}" title="Edit name">✎</button>`;
     if(lead && !isLead) h += `<button class="mini" data-act="makelead" data-id="${m.id}" title="Make lead">★</button>
                               <button class="mini" data-act="rm" data-id="${m.id}" title="Remove">✕</button>`;
     if(isLead && m.id !== meId) h += `<button class="pick" data-act="setme" data-id="${m.id}">I'm ${esc(m.name.split(" ")[0])}</button>`;
@@ -841,6 +876,20 @@ function shareSheetHTML(){
       <button class="btn ghost" data-act="copymsg">Copy a WhatsApp message</button>
       <button class="btn flat" data-act="close">Done</button></div>
     <textarea id="shareMsg" style="position:absolute;left:-9999px" readonly>${esc(msg)}</textarea>`;
+}
+
+function editMemberSheetHTML(id){
+  const m = member(id);
+  if(!m) return `<h3>Not found</h3><div class="act"><button class="btn flat" data-act="manage">Back</button></div>`;
+  return `<h3>Edit name</h3>
+    <div class="sub">${esc(teamDoc.name)}</div>
+    <div class="fld"><label>Full name</label>
+      <input id="emName" value="${esc(m.name)}" autocomplete="off"></div>
+    <p style="font-size:12.5px;color:var(--ink-3);margin:0 0 8px">
+      Fixing a spelling won't touch their marked leaves.</p>
+    <div class="act">
+      <button class="btn primary" data-act="em-save" data-id="${id}">Save</button>
+      <button class="btn flat" data-act="manage">Cancel</button></div>`;
 }
 
 function newTeamSheetHTML(){
@@ -915,7 +964,7 @@ document.addEventListener("click", async e => {
   if(act === "mark"){
     const k = el.getAttribute("data-k"), t = el.getAttribute("data-t");
     closeSheet(); await setLeave(k, t);
-    toast((t === "half" ? "Half day" : "Leave")+" marked"); return;
+    toast("Leave marked"); return;
   }
   if(act === "clear"){
     const k = el.getAttribute("data-k");
@@ -937,6 +986,11 @@ document.addEventListener("click", async e => {
     if(id){ openSheet_ = { type:"share" }; showSheet(shareSheetHTML()); }
     return;
   }
+  if(act === "tm-rename"){
+    const i = document.getElementById("tmRename");
+    await renameTeam(i ? i.value : "");
+    return;
+  }
   if(act === "am-add"){
     const i = document.getElementById("amName");
     const added = await addMember(i ? i.value : "");
@@ -948,6 +1002,20 @@ document.addEventListener("click", async e => {
     lsSet("me:"+tid, meId);
     refreshSheet(); render();
     toast("Hi "+esc(me().name.split(" ")[0])+" — tap dates to mark your leave");
+    return;
+  }
+  if(act === "editm"){
+    const id = el.getAttribute("data-id");
+    openSheet_ = { type:"editmember", id };
+    showSheet(editMemberSheetHTML(id));
+    const i = document.getElementById("emName");
+    if(i){ i.focus(); i.select(); }
+    return;
+  }
+  if(act === "em-save"){
+    const i = document.getElementById("emName");
+    const ok = await renameMember(el.getAttribute("data-id"), i ? i.value : "");
+    if(ok){ openSheet_ = { type:"manage" }; showSheet(manageSheetHTML()); render(); }
     return;
   }
   if(act === "makelead"){ await makeLead(el.getAttribute("data-id")); return; }
@@ -981,6 +1049,8 @@ document.addEventListener("keydown", e => {
   if(e.key !== "Enter") return;
   const id = e.target && e.target.id;
   if(id === "amName") document.querySelector('[data-act="am-add"]')?.click();
+  if(id === "tmRename") document.querySelector('[data-act="tm-rename"]')?.click();
+  if(id === "emName") document.querySelector('[data-act="em-save"]')?.click();
   if(id === "ntMe")   document.querySelector('[data-act="nt-create"]')?.click();
 });
 
