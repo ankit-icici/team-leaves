@@ -84,6 +84,13 @@
   .day.solo-on{background:var(--o-500);border-color:var(--o-500)}
   .day.solo-on .n{color:#fff;font-weight:750}
   .day .mine{position:absolute;bottom:4px;width:15px;height:3px;border-radius:2px;background:var(--maroon)}
+  .rangebar{display:flex;align-items:center;gap:10px;padding:2px 14px 8px;font-size:12px;font-weight:600;color:var(--ink-3)}
+  .rangebar span{flex:1;min-width:0}
+  .rangebar button{flex:0 0 auto;font-size:12px;font-weight:750;letter-spacing:.3px;color:var(--o-700);background:var(--o-050);border:1px solid var(--o-100);padding:6px 12px;border-radius:999px}
+  .rangebar.on{color:var(--maroon)}
+  .rangebar.on button{background:var(--maroon);border-color:var(--maroon);color:#fff}
+  .grid.picking .day{touch-action:none}
+  .day.sel{box-shadow:inset 0 0 0 2.5px var(--maroon)}
   .legend{display:flex;gap:14px;flex-wrap:wrap;padding:0 16px 4px;font-size:11.5px;color:var(--ink-3);font-weight:600}
   .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 
@@ -235,6 +242,10 @@ let phase = "boot";    // boot | pick | app
 let subs = { all:null, team:null, years:{} };
 let net = { online: navigator.onLine, cached:false, pending:0, error:null };
 let openSheet_ = null;
+let rangeMode = false;      // "Select range" toggle
+let anchorKey = null;       // first date of a range being built
+let hoverKey = null;        // date currently under the finger
+let dragging = false;
 
 const COLORS = ["#F37E20","#8A1538","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#A16207","#7C2D12","#0E7490"];
@@ -255,6 +266,12 @@ function todayKey(){ return key(new Date()); }
 function isWeekend(d){ const g = d.getDay(); return g === 0 || g === 6; }
 function mondayIndex(d){ return (d.getDay()+6)%7; }
 function nextDayKey(k){ const d = parse(k); d.setDate(d.getDate()+1); return key(d); }
+function datesBetween(a,b){
+  if(a > b){ const t = a; a = b; b = t; }
+  const out = []; let k = a;
+  for(let guard = 0; guard < 800; guard++){ out.push(k); if(k === b) break; k = nextDayKey(k); }
+  return out;
+}
 function longDate(k){
   const d = parse(k);
   const wd = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];
@@ -531,17 +548,62 @@ async function makeLead(id){
   } catch(e){ toast("Couldn't transfer. Needs internet."); }
 }
 
-async function setLeave(k, type){
-  if(!meId) return;
-  const y = k.slice(0,4);
-  watchYear(y);
-  yearData[y] = yearData[y] || {};
-  yearData[y][meId] = yearData[y][meId] || {};
-  if(type) yearData[y][meId][k] = type; else delete yearData[y][meId][k];
+/* Every team this phone has joined AND picked a name in. A person has a
+   different member id in each team, so mirroring means writing the same dates
+   under each of those ids. */
+function myTargets(){
+  const out = [], missing = [];
+  for(const t of known){
+    const mid = lsGet("me:"+t.id);
+    if(mid) out.push({ tid:t.id, mid, name:t.name });
+    else missing.push(t.name);
+  }
+  return { targets:out, missing };
+}
+
+/* Mark or unmark any number of dates, across every team at once. */
+async function writeLeaves(keys, on){
+  keys = keys.filter(k => k >= todayKey());
+  if(!keys.length){ toast("Past dates can't be changed"); return; }
+  if(!meId){ openWhoami(); return; }
+
+  const { targets, missing } = myTargets();
+  if(!targets.length){ openWhoami(); return; }
+
+  // group by calendar year so each year document is written once
+  const byYear = {};
+  for(const k of keys){
+    const y = k.slice(0,4);
+    if(!byYear[y]) byYear[y] = [];
+    byYear[y].push(k);
+  }
+
+  // optimistic update for the team on screen, so the tap feels instant
+  for(const y of Object.keys(byYear)){
+    watchYear(y);
+    yearData[y] = yearData[y] || {};
+    yearData[y][meId] = yearData[y][meId] || {};
+    for(const k of byYear[y]){
+      if(on) yearData[y][meId][k] = "full"; else delete yearData[y][meId][k];
+    }
+  }
   rebuild(); render();
+
   try {
-    await setDoc(doc(db, "teams", tid, "years", y),
-      { days: { [meId]: { [k]: type ? type : deleteField() } } }, { merge:true });
+    for(const tg of targets){
+      for(const y of Object.keys(byYear)){
+        const days = {};
+        for(const k of byYear[y]) days[k] = on ? "full" : deleteField();
+        await setDoc(doc(db, "teams", tg.tid, "years", y),
+          { days: { [tg.mid]: days } }, { merge:true });
+      }
+    }
+    const n = keys.length;
+    const what = n === 1 ? "Leave" : n+" days";
+    const where = targets.length > 1 ? " in all "+targets.length+" of your teams" : "";
+    toast(what + (on ? " marked" : " removed") + where);
+    if(missing.length)
+      setTimeout(() => toast("Pick your name in "+esc(missing[0])+" to mirror leaves there"), 2700);
   } catch(e){ toast("Couldn't save — check your connection"); }
 }
 
@@ -687,8 +749,18 @@ function calendarHTML(){
     <div class="cal-head"><h2>${MONTHS[mo]} <em>${y}</em></h2>
     <div class="nav"><button data-act="mo" data-d="-1" aria-label="Previous month">‹</button>
     <button data-act="mo" data-d="0" aria-label="This month">•</button>
-    <button data-act="mo" data-d="1" aria-label="Next month">›</button></div></div>
-    <div class="dow">${DOW.map(d => `<span>${d}</span>`).join("")}</div><div class="grid">`;
+    <button data-act="mo" data-d="1" aria-label="Next month">›</button></div></div>`;
+
+  h += rangeMode
+    ? `<div class="rangebar on"><span>${anchorKey
+        ? "Now tap or drag to the last day"
+        : "Tap the first day, then drag or tap the last"}</span>
+       <button data-act="range-off">Done</button></div>`
+    : `<div class="rangebar"><span>Tap a date to mark your leave</span>
+       <button data-act="range-on">Select range</button></div>`;
+
+  h += `<div class="dow">${DOW.map(d => `<span>${d}</span>`).join("")}</div>
+    <div class="grid${rangeMode ? " picking" : ""}" id="calGrid">`;
 
   for(let i=0;i<lead;i++) h += `<div class="day pad"></div>`;
   for(let d=1; d<=total; d++){
@@ -697,6 +769,9 @@ function calendarHTML(){
     if(isWeekend(date)) cls.push("weekend");
     if(k === tk) cls.push("today");
     if(k < tk) cls.push("past");
+    if(rangeMode && anchorKey && hoverKey && k >= (anchorKey < hoverKey ? anchorKey : hoverKey)
+       && k <= (anchorKey < hoverKey ? hoverKey : anchorKey)) cls.push("sel");
+    else if(rangeMode && anchorKey === k) cls.push("sel");
     let inner = `<span class="n">${d}</span>`;
     if(solo){
       if(daysOf(solo)[k]) cls.push("solo-on");
@@ -711,7 +786,8 @@ function calendarHTML(){
   h += `</div></div><div class="legend">` + (solo
     ? `<span><i style="background:var(--o-500)"></i>${esc((member(solo)||{name:"?"}).name.split(" ")[0])} on leave</span>`
     : `<span><i style="background:var(--o-500)"></i>Initials = who's out</span>`
-      + (meId ? `<span><i style="background:var(--maroon)"></i>Bar = your own leave</span>` : "")) + `</div>`;
+      + (meId ? `<span><i style="background:var(--maroon)"></i>Bar = your own leave</span>` : "")) 
+    + `<span>Press and hold a date to see who's out</span></div>`;
   return h;
 }
 
@@ -810,23 +886,17 @@ function refreshSheet(){
 function daySheetHTML(k){
   const out = outOn(k);
   const mine = meId ? daysOf(meId)[k] : null;
-  const past = k < todayKey();
-
   let h = `<h3>${longDate(k)}</h3>
     <div class="sub">${out.length ? out.length+(out.length===1?" person":" people")+" out" : "Nobody on leave"} · ${esc(teamDoc.name)}</div>`;
   h += out.length
     ? `<ul class="out-list">${out.map(o => `<li>${avatar(o.m)}<span>${esc(o.m.name)}</span></li>`).join("")}</ul>`
     : `<p class="empty-out">Full team available.</p>`;
-
   h += `<div class="act">`;
-  if(!meId) h += `<button class="btn primary" data-act="whoami">Pick your name first</button>`;
-  else if(past) h += `<button class="btn flat" disabled>Past dates can't be changed</button>`;
-  else if(mine){
-    h += `<button class="btn danger" data-act="clear" data-k="${k}">Remove my leave</button>`;
-  } else {
-    h += `<button class="btn primary" data-act="mark" data-k="${k}" data-t="full">Mark my leave · ${esc(me().name.split(" ")[0])}</button>`;
-  }
-  return h+`</div>`;
+  if(meId && k >= todayKey())
+    h += `<button class="btn ${mine ? "danger" : "primary"}" data-act="toggle" data-k="${k}">${
+      mine ? "Remove my leave" : "Mark my leave"}</button>`;
+  h += `<button class="btn flat" data-act="close">Close</button></div>`;
+  return h;
 }
 
 function manageSheetHTML(){
@@ -931,6 +1001,11 @@ function accountSheetHTML(){
   return h;
 }
 
+function openWhoami(){
+  openSheet_ = { type:"whoami" };
+  showSheet(whoamiSheetHTML());
+}
+
 let toastTimer = null;
 function toast(msg){
   const el = document.getElementById("toast");
@@ -960,19 +1035,17 @@ document.addEventListener("click", async e => {
     render(); return;
   }
 
-  if(act === "day"){ openSheet_ = { type:"day", k:el.getAttribute("data-k") }; showSheet(daySheetHTML(openSheet_.k)); return; }
-  if(act === "mark"){
-    const k = el.getAttribute("data-k"), t = el.getAttribute("data-t");
-    closeSheet(); await setLeave(k, t);
-    toast("Leave marked"); return;
-  }
-  if(act === "clear"){
+  if(act === "toggle"){
     const k = el.getAttribute("data-k");
-    closeSheet(); await setLeave(k, null); toast("Leave removed"); return;
+    closeSheet();
+    await writeLeaves([k], !(meId && daysOf(meId)[k]));
+    return;
   }
+  if(act === "range-on"){ rangeMode = true; anchorKey = null; hoverKey = null; render(); return; }
+  if(act === "range-off"){ rangeMode = false; anchorKey = null; hoverKey = null; render(); return; }
 
   if(act === "manage"){ openSheet_ = { type:"manage" }; showSheet(manageSheetHTML()); return; }
-  if(act === "whoami"){ openSheet_ = { type:"whoami" }; showSheet(whoamiSheetHTML()); return; }
+  if(act === "whoami"){ openWhoami(); return; }
   if(act === "pick"){ closeSheet(); stopAll(); tid = null; teamDoc = null; phase = "pick"; render(); return; }
   if(act === "join"){ joinTeam(el.getAttribute("data-id")); return; }
   if(act === "share"){ openSheet_ = { type:"share" }; showSheet(shareSheetHTML()); return; }
@@ -1044,8 +1117,109 @@ document.addEventListener("click", async e => {
   if(act === "close"){ closeSheet(); render(); return; }
 });
 
+/* ── Calendar gestures ─────────────────────────────────────────
+   Normal mode:  tap = toggle that date.  Press and hold = who's out.
+   Range mode:   press, drag, release = mark/unmark the whole run.
+                 Or tap the first day and tap the last — no dragging needed.
+   Range mode is a deliberate toggle rather than a hidden gesture, because a
+   drag-anywhere calendar would swallow the vertical swipe used to scroll. */
+(function calendarGestures(){
+  let holdTimer = null, downKey = null, downXY = null, movedOff = false, handled = false;
+  const HOLD_MS = 420, MOVE_TOL = 12;
+
+  function cellAt(x,y){
+    const el = document.elementFromPoint(x,y);
+    const day = el && el.closest ? el.closest(".day") : null;
+    return (day && !day.classList.contains("pad")) ? day.getAttribute("data-k") : null;
+  }
+  function paintPreview(){
+    const grid = document.getElementById("calGrid");
+    if(!grid) return;
+    const lo = anchorKey && hoverKey ? (anchorKey < hoverKey ? anchorKey : hoverKey) : anchorKey;
+    const hi = anchorKey && hoverKey ? (anchorKey < hoverKey ? hoverKey : anchorKey) : anchorKey;
+    for(const c of grid.querySelectorAll(".day")){
+      const k = c.getAttribute("data-k");
+      const on = lo && k && k >= lo && k <= hi;
+      c.classList.toggle("sel", !!on);
+    }
+  }
+  function clearHold(){ if(holdTimer){ clearTimeout(holdTimer); holdTimer = null; } }
+  function reset(){ clearHold(); downKey = null; downXY = null; movedOff = false; dragging = false; }
+
+  document.addEventListener("pointerdown", e => {
+    if(phase !== "app" || view !== "calendar") return;
+    const cell = e.target.closest ? e.target.closest(".day") : null;
+    if(!cell || cell.classList.contains("pad")) return;
+    const k = cell.getAttribute("data-k");
+    if(!k) return;
+
+    handled = false; movedOff = false;
+    downKey = k; downXY = { x:e.clientX, y:e.clientY };
+
+    if(rangeMode){
+      dragging = true;
+      if(!anchorKey){ anchorKey = k; hoverKey = k; }
+      else { hoverKey = k; }
+      paintPreview();
+      return;
+    }
+    clearHold();
+    holdTimer = setTimeout(() => {
+      holdTimer = null; handled = true;
+      openSheet_ = { type:"day", k };
+      showSheet(daySheetHTML(k));
+    }, HOLD_MS);
+  }, { passive:true });
+
+  document.addEventListener("pointermove", e => {
+    if(!downKey) return;
+    if(rangeMode && dragging){
+      const k = cellAt(e.clientX, e.clientY);
+      if(k && k !== hoverKey){ hoverKey = k; paintPreview(); }
+      return;
+    }
+    if(downXY && (Math.abs(e.clientX-downXY.x) > MOVE_TOL || Math.abs(e.clientY-downXY.y) > MOVE_TOL)){
+      movedOff = true;      // they're scrolling, not tapping
+      clearHold();
+    }
+  }, { passive:true });
+
+  document.addEventListener("pointerup", async e => {
+    if(!downKey) return;
+    const startKey = downKey, wasHandled = handled, scrolled = movedOff;
+
+    if(rangeMode && dragging){
+      const endKey = cellAt(e.clientX, e.clientY) || hoverKey || startKey;
+      reset();
+      if(endKey === anchorKey && endKey === startKey){
+        // a single tap in range mode: keep the anchor and wait for the second tap
+        hoverKey = anchorKey;
+        paintPreview();
+        return;
+      }
+      const from = anchorKey || startKey;
+      const keys = datesBetween(from, endKey);
+      const on = !(meId && daysOf(meId)[from]);
+      anchorKey = null; hoverKey = null;
+      await writeLeaves(keys, on);
+      return;
+    }
+
+    reset();
+    if(wasHandled || scrolled) return;
+    if(startKey < todayKey()){ toast("Past dates can't be changed"); return; }
+    if(!meId){ openWhoami(); return; }
+    await writeLeaves([startKey], !daysOf(meId)[startKey]);
+  });
+
+  document.addEventListener("pointercancel", () => { reset(); });
+})();
+
 document.addEventListener("keydown", e => {
-  if(e.key === "Escape") closeSheet();
+  if(e.key === "Escape"){
+    if(rangeMode){ rangeMode = false; anchorKey = null; hoverKey = null; render(); }
+    closeSheet();
+  }
   if(e.key !== "Enter") return;
   const id = e.target && e.target.id;
   if(id === "amName") document.querySelector('[data-act="am-add"]')?.click();
