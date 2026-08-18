@@ -221,7 +221,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, onSnapshot, setDoc, runTransaction, deleteField
+  collection, doc, getDoc, getDocs, onSnapshot, setDoc, runTransaction, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const CONFIGURED = !String(firebaseConfig.apiKey).startsWith("PASTE_");
@@ -253,6 +253,7 @@ let net = { online: navigator.onLine, cached:false, stale:false, pending:0, erro
 let cacheState = {};      // one entry per live listener
 let staleTimer = null;
 let openSheet_ = null;
+let pendingRestore = null;   // a parsed backup waiting for confirmation
 let rangeMode = false;      // "Select range" toggle
 let anchorKey = null;       // first date of a range being built
 let hoverKey = null;        // date currently under the finger
@@ -642,15 +643,182 @@ async function writeLeaves(keys, on){
   } catch(e){ toast("Couldn't save — check your connection"); }
 }
 
+function download(name, text, mime){
+  const blob = new Blob([text], { type:mime || "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* Turn one team's raw storage into something a person can actually read:
+   dates grouped under each member's name rather than under an internal id. */
+function shapeTeam(name, leadId, members, daysByMember){
+  const byId = {};
+  for(const m of members) byId[m.id] = m.name;
+  const people = members.map(m => {
+    const dates = Object.keys(daysByMember[m.id] || {}).sort();
+    return { name:m.name, id:m.id, isLead:m.id === leadId, leaveCount:dates.length, dates };
+  });
+  return { team:name, lead:byId[leadId] || null, people };
+}
+
+/* Every team this phone has joined, in one file. Reads through the offline
+   cache, so this works with no signal using the last data each team synced. */
+async function exportAllTeams(){
+  if(!known.length){ toast("No teams to export yet"); return; }
+  toast("Preparing your backup…");
+  const out = { exported:new Date().toISOString(), app:"Team Leaves", teams:[] };
+  let failed = 0;
+  for(const t of known){
+    try {
+      const tSnap = await getDoc(doc(db, "teams", t.id));
+      if(!tSnap.exists()){ failed++; continue; }
+      const d = tSnap.data() || {};
+      const members = Array.isArray(d.members) ? d.members : [];
+      const merged = {};
+      const ySnap = await getDocs(collection(db, "teams", t.id, "years"));
+      ySnap.forEach(yd => {
+        const days = (yd.data() || {}).days || {};
+        for(const mid of Object.keys(days))
+          merged[mid] = Object.assign(merged[mid] || {}, days[mid] || {});
+      });
+      out.teams.push(shapeTeam(d.name || t.name, d.leadId, members, merged));
+    } catch(e){ failed++; }
+  }
+  if(!out.teams.length){ toast("Couldn't read your teams. Try again online."); return; }
+  download("team-leaves-all-"+todayKey()+".json", JSON.stringify(out, null, 2));
+  const n = out.teams.length;
+  toast("Backed up "+n+(n===1?" team":" teams")+(failed ? " · "+failed+" couldn't be read" : ""));
+}
+
+/* Accepts both files this app produces: the all-teams backup and the
+   single-team one. Returns [{ name, people:[{id,name,dates:[]}] }]. */
+function normaliseBackup(data){
+  const teams = [];
+  const pushAllTeams = t => {
+    if(!t || !Array.isArray(t.people)) return;
+    teams.push({
+      name: String(t.team || "Untitled"),
+      people: t.people.map(p => ({
+        id: p.id || null,
+        name: String(p.name || "").trim(),
+        dates: Array.isArray(p.dates) ? p.dates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)) : []
+      })).filter(p => p.name)
+    });
+  };
+  if(data && Array.isArray(data.teams)){ data.teams.forEach(pushAllTeams); return teams; }
+  // single-team format: members[] plus leaves keyed by member id
+  if(data && Array.isArray(data.members)){
+    const leaves = data.leaves || {};
+    teams.push({
+      name: String(data.team || "Untitled"),
+      people: data.members.map(m => ({
+        id: m.id || null,
+        name: String(m.name || "").trim(),
+        dates: Object.keys(leaves[m.id] || {}).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
+      })).filter(p => p.name)
+    });
+  }
+  return teams;
+}
+
+function pickRestoreFile(){
+  if(!iAmLead()){ toast("Only the team lead can restore a backup"); return; }
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = "application/json,.json";
+  inp.addEventListener("change", async () => {
+    const f = inp.files && inp.files[0];
+    if(!f) return;
+    try {
+      const teams = normaliseBackup(JSON.parse(await f.text()));
+      if(!teams.length){ toast("No team data found in that file"); return; }
+      // if the file holds several teams, preselect the one matching this team
+      let pick = teams.findIndex(t => t.name.toLowerCase() === String(teamDoc.name).toLowerCase());
+      if(pick < 0) pick = 0;
+      pendingRestore = { teams, pick, fileName:f.name };
+      openSheet_ = { type:"restore" };
+      showSheet(restoreSheetHTML());
+    } catch(e){ toast("Couldn't read that file — is it a Team Leaves backup?"); }
+  });
+  inp.click();
+}
+
+/* mode "merge"   → add anything missing, touch nothing that already exists
+   mode "replace" → this team's leaves become exactly what the backup says
+   Neither mode ever removes a person from the roster. */
+async function applyRestore(mode){
+  if(!iAmLead()){ toast("Only the team lead can restore a backup"); return; }
+  if(!pendingRestore) return;
+  const src = pendingRestore.teams[pendingRestore.pick] || pendingRestore.teams[0];
+
+  const cur = roster();
+  const byId = {}, byName = {};
+  for(const mm of cur){ byId[mm.id] = mm; byName[mm.name.toLowerCase()] = mm; }
+
+  const members = cur.slice();
+  const resolved = [];
+  for(const p of src.people){
+    let mm = (p.id && byId[p.id]) || byName[p.name.toLowerCase()];
+    if(!mm){
+      // re-add with the backup's own id, so their dates reattach exactly
+      mm = { id:p.id || newMemberId(), name:p.name, color:COLORS[members.length % COLORS.length] };
+      members.push(mm); byId[mm.id] = mm; byName[mm.name.toLowerCase()] = mm;
+    }
+    resolved.push({ mid:mm.id, dates:p.dates });
+  }
+
+  // dates from the backup, grouped by year then member
+  const wanted = {};
+  for(const r of resolved){
+    for(const d of r.dates){
+      const y = d.slice(0,4);
+      if(!wanted[y]) wanted[y] = {};
+      if(!wanted[y][r.mid]) wanted[y][r.mid] = {};
+      wanted[y][r.mid][d] = "full";
+    }
+  }
+
+  toast("Restoring…");
+  try {
+    if(members.length !== cur.length){
+      await runTransaction(db, async tx => {
+        const ref = doc(db, "teams", tid);
+        const snap = await tx.get(ref);
+        const existing = (snap.exists() && Array.isArray(snap.data().members)) ? snap.data().members : [];
+        const have = new Set(existing.map(x => x.id));
+        const add = members.filter(x => !have.has(x.id));
+        tx.set(ref, { members: existing.concat(add) }, { merge:true });
+      });
+    }
+
+    if(mode === "merge"){
+      for(const y of Object.keys(wanted))
+        await setDoc(doc(db, "teams", tid, "years", y), { days: wanted[y] }, { merge:true });
+    } else {
+      // every year already stored, plus every year in the backup
+      const existingYears = [];
+      const snap = await getDocs(collection(db, "teams", tid, "years"));
+      snap.forEach(d => existingYears.push(d.id));
+      const years = Array.from(new Set(existingYears.concat(Object.keys(wanted))));
+      for(const y of years)
+        await setDoc(doc(db, "teams", tid, "years", y), { days: wanted[y] || {} });
+    }
+
+    const total = resolved.reduce((n,r) => n + r.dates.length, 0);
+    pendingRestore = null;
+    closeSheet();
+    toast("Restored "+total+(total===1?" leave day":" leave days"));
+  } catch(e){ toast("Restore failed — are you online?"); }
+}
+
 function exportJSON(){
   const data = { exported:new Date().toISOString(), team:teamDoc.name,
                  lead:leadName(), members:roster(), leaves };
-  const blob = new Blob([JSON.stringify(data,null,2)], { type:"application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "leaves-"+String(teamDoc.name).replace(/\W+/g,"-").toLowerCase()+"-"+todayKey()+".json";
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  download("leaves-"+String(teamDoc.name).replace(/\W+/g,"-").toLowerCase()+"-"+todayKey()+".json",
+           JSON.stringify(data,null,2));
   toast("Backup downloaded");
 }
 
@@ -907,7 +1075,7 @@ function refreshSheet(){
   const t = openSheet_.type;
   if(t === "day"){ showSheet(daySheetHTML(openSheet_.k)); return; }
   if(t === "share"){ showSheet(shareSheetHTML()); return; }
-  if(t === "newteam" || t === "editmember") return;   // never clobber a form mid-typing
+  if(t === "newteam" || t === "editmember" || t === "restore") return;   // never clobber a form or preview
   if(t === "manage"){
     const keep = {};
     for(const id of ["amName","tmRename"]){
@@ -969,8 +1137,9 @@ function manageSheetHTML(){
   if(!lead) h += `<p style="font-size:12.5px;color:var(--ink-3);margin:12px 0 0">Only ${esc(leadName().split(" ")[0])} can add or remove people.</p>`;
   h += `<div class="act" style="margin-top:16px">
     <button class="btn flat" data-act="share">Share the app</button>
-    <button class="btn flat" data-act="export">Download a backup</button>
-    <button class="btn flat" data-act="close">Done</button></div>`;
+    <button class="btn flat" data-act="export">Download a backup</button>`;
+  if(lead) h += `<button class="btn flat" data-act="restore">Restore from a backup file</button>`;
+  h += `<button class="btn flat" data-act="close">Done</button></div>`;
   return h;
 }
 
@@ -999,6 +1168,52 @@ function editMemberSheetHTML(id){
     <div class="act">
       <button class="btn primary" data-act="em-save" data-id="${id}">Save</button>
       <button class="btn flat" data-act="manage">Cancel</button></div>`;
+}
+
+function restoreSheetHTML(){
+  if(!pendingRestore) return `<h3>Nothing to restore</h3>
+    <div class="act"><button class="btn flat" data-act="manage">Back</button></div>`;
+  const { teams, pick, fileName } = pendingRestore;
+  const src = teams[pick] || teams[0];
+  const dates = src.people.reduce((n,p) => n + p.dates.length, 0);
+
+  const cur = roster();
+  const haveId = new Set(cur.map(m => m.id));
+  const haveName = new Set(cur.map(m => m.name.toLowerCase()));
+  const newPeople = src.people.filter(p => !(p.id && haveId.has(p.id)) && !haveName.has(p.name.toLowerCase()));
+
+  let h = `<h3>Restore backup</h3><div class="sub">${esc(fileName)}</div>`;
+
+  if(teams.length > 1){
+    h += `<div class="fld"><label>This file holds ${teams.length} teams — restore which one?</label></div>
+      <ul class="mlist">`;
+    teams.forEach((t,i) => {
+      const n = t.people.reduce((a,p) => a + p.dates.length, 0);
+      h += `<li><div class="who"><b>${esc(t.name)}</b><span>${t.people.length} people · ${n} leave days</span></div>${
+        i === pick ? `<span class="lead">CHOSEN</span>`
+                   : `<button class="pick" data-act="rs-pick" data-i="${i}">Choose</button>`}</li>`;
+    });
+    h += `</ul>`;
+  }
+
+  h += `<p style="font-size:13.5px;color:var(--ink-2);margin:14px 0 4px">
+    Restoring <b>${esc(src.name)}</b> into <b>${esc(teamDoc.name)}</b>:
+    ${src.people.length} people, ${dates} leave ${dates===1?"day":"days"}.</p>`;
+  if(newPeople.length)
+    h += `<p style="font-size:12.5px;color:var(--o-700);margin:0 0 4px">
+      ${newPeople.length} ${newPeople.length===1?"person":"people"} in the backup ${
+      newPeople.length===1?"isn't":"aren't"} on this team any more — they'll be added back:
+      ${esc(newPeople.map(p=>p.name).join(", "))}</p>`;
+
+  h += `<div class="act" style="margin-top:12px">
+      <button class="btn primary" data-act="rs-merge">Add back anything missing</button>
+      <button class="btn danger" data-act="rs-replace">Replace all leaves in this team</button>
+      <button class="btn flat" data-act="rs-cancel">Cancel</button></div>
+    <p style="font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.6">
+      <b>Add back</b> keeps every leave already marked and fills in what's missing — safe to run twice.
+      <b>Replace</b> makes this team match the backup exactly, so leaves marked since the backup was
+      taken are removed. Neither option removes anyone from the team.</p>`;
+  return h;
 }
 
 function newTeamSheetHTML(){
@@ -1032,7 +1247,8 @@ function accountSheetHTML(){
       <button class="btn flat" data-act="manage">${iAmLead() ? "Manage team" : "Team members"}</button>
       <button class="btn flat" data-act="pick">Join another team</button>
       <button class="btn flat" data-act="share">Share the app</button>
-      <button class="btn flat" data-act="newteam">Create another team</button>`;
+      <button class="btn flat" data-act="newteam">Create another team</button>
+      <button class="btn flat" data-act="export-all">Back up all my teams</button>`;
   h += `<button class="btn danger" data-act="forget">Leave ${esc(teamDoc.name)} on this phone</button>`;
   h += `<button class="btn flat" data-act="close">Close</button></div>
     <p style="font-size:12px;color:var(--ink-3);margin:12px 0 0;line-height:1.6">
@@ -1153,6 +1369,19 @@ document.addEventListener("click", async e => {
     return;
   }
   if(act === "export"){ exportJSON(); return; }
+  if(act === "export-all"){ await exportAllTeams(); return; }
+  if(act === "restore"){ pickRestoreFile(); return; }
+  if(act === "rs-pick"){
+    if(pendingRestore){ pendingRestore.pick = +el.getAttribute("data-i"); showSheet(restoreSheetHTML()); }
+    return;
+  }
+  if(act === "rs-merge"){ await applyRestore("merge"); return; }
+  if(act === "rs-replace"){
+    if(!confirm("Replace all leaves in "+teamDoc.name+" with the backup?\n\nAnything marked since this backup was taken will be removed.")) return;
+    await applyRestore("replace");
+    return;
+  }
+  if(act === "rs-cancel"){ pendingRestore = null; openSheet_ = { type:"manage" }; showSheet(manageSheetHTML()); return; }
   if(act === "close"){ closeSheet(); render(); return; }
 });
 
