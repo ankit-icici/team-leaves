@@ -99,17 +99,14 @@
   .p-sub{font-size:12px;color:var(--ink-3);font-weight:600;margin-top:1px}
   .p-count{margin-left:auto;text-align:right;font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.6px;text-transform:uppercase}
   .p-count b{display:block;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
-  .strip{display:flex;gap:1.5px;margin:12px 0 9px;height:26px;align-items:stretch}
-  .strip i{flex:1;border-radius:3px;background:#F4EBE3;position:relative}
-  .strip i.we{background:#EFE6DE}
-  .strip i.on{background:var(--o-500)}
-  .strip i.half{background:linear-gradient(to top,var(--o-500) 0 50%,var(--o-100) 50% 100%)}
-  .strip i.today::after{content:"";position:absolute;left:50%;bottom:-6px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;background:var(--maroon)}
-  .strip-scale{display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--ink-3);letter-spacing:.6px;margin-top:-4px}
-  .dates{font-size:13.5px;color:var(--ink-2);line-height:1.6}
-  .dates b{color:var(--ink);font-weight:650}
-  .dates .half-tag{font-size:10.5px;font-weight:750;color:var(--o-700);letter-spacing:.4px}
-  .none{font-size:13px;color:var(--ink-3);font-style:italic}
+  .llist{list-style:none;margin:11px 0 0;padding:0}
+  .llist li{display:flex;align-items:baseline;gap:10px;padding:9px 0;font-size:14.5px;border-top:1px dashed var(--line)}
+  .llist li:first-child{border-top:1px solid var(--line)}
+  .llist .ld{font-weight:650;color:var(--ink)}
+  .llist .lt{margin-left:auto;font-size:10.5px;font-weight:750;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+  .llist .lt.hi{color:var(--o-700)}
+  .llist .lt + .lt{margin-left:8px}
+  .none{font-size:13.5px;color:var(--ink-3);font-style:italic;margin-top:9px}
 
   .scrim{position:fixed;inset:0;background:rgba(42,28,20,.42);z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
   .scrim.on{opacity:1;pointer-events:auto}
@@ -147,7 +144,6 @@
   .mlist .mini{font-size:16px;color:var(--ink-3);padding:2px 5px;line-height:1;flex:0 0 auto}
 
   .linkbox{background:var(--o-050);border:1px solid var(--o-100);color:var(--o-700);padding:12px;border-radius:12px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;margin:0 0 12px;line-height:1.5}
-  .warn{background:#FFF8E7;border:1px solid #FBE3B0;color:#8A5A00;padding:11px 13px;border-radius:12px;font-size:12.5px;line-height:1.55;margin:0 0 14px}
   .gate{padding:26px 20px}
   .gate h2{margin:0 0 8px;font-size:23px;font-weight:750;letter-spacing:-.5px}
   .gate p{font-size:14.5px;color:var(--ink-2);margin:0 0 14px}
@@ -636,7 +632,7 @@ function teamsBarHTML(){
 function segHTML(){
   return `<div class="seg" role="tablist">
     <button role="tab" data-act="view" data-v="calendar" aria-selected="${view==="calendar"}">Calendar</button>
-    <button role="tab" data-act="view" data-v="people" aria-selected="${view==="people"}">By person</button></div>`;
+    <button role="tab" data-act="view" data-v="people" aria-selected="${view==="people"}">List</button></div>`;
 }
 
 function chipsHTML(){
@@ -687,51 +683,58 @@ function calendarHTML(){
   return h;
 }
 
-function rangeText(id){
+/* Group a person's upcoming leaves into consecutive runs, then describe each
+   one the way someone would say it out loud: "Thu 20 – Fri 21 Aug, 2 days". */
+function upcomingList(id){
   const ks = upcoming(id), days = daysOf(id);
-  if(!ks.length) return `<span class="none">No leaves coming up</span>`;
   const groups = []; let cur = null;
   for(const k of ks){
     const t = days[k];
     if(cur && cur.type === t && nextDayKey(cur.end) === k){ cur.end = k; continue; }
     cur = { start:k, end:k, type:t }; groups.push(cur);
   }
+  const thisYear = new Date().getFullYear();
+  const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   return groups.map(g => {
     const a = parse(g.start), b = parse(g.end);
-    const txt = g.start === g.end ? a.getDate()+" "+MON[a.getMonth()]
-      : a.getMonth() === b.getMonth() ? a.getDate()+"–"+b.getDate()+" "+MON[b.getMonth()]
-      : a.getDate()+" "+MON[a.getMonth()]+" – "+b.getDate()+" "+MON[b.getMonth()];
-    const n = Math.round((b-a)/86400000)+1;
-    return `<b>${txt}</b>${n > 1 ? ` <span class="half-tag">${n} DAYS</span>` : ""}${g.type === "half" ? ` <span class="half-tag">HALF DAY</span>` : ""}`;
-  }).join(" &nbsp;·&nbsp; ");
-}
-
-function stripHTML(id){
-  const y = cursor.getFullYear(), mo = cursor.getMonth();
-  const total = daysInMonth(cursor), tk = todayKey(), days = daysOf(id);
-  let h = `<div class="strip">`;
-  for(let d=1; d<=total; d++){
-    const date = new Date(y, mo, d), k = key(date);
-    const t = days[k];
-    let c = t === "full" ? "on" : (t === "half" ? "half" : (isWeekend(date) ? "we" : ""));
-    if(k === tk) c += " today";
-    h += `<i class="${c}"></i>`;
-  }
-  return h+`</div><div class="strip-scale"><span>1</span><span>${MON[mo].toUpperCase()} ${y}</span><span>${total}</span></div>`;
+    const yr = d => d.getFullYear() === thisYear ? "" : " " + d.getFullYear();
+    let label;
+    if(g.start === g.end){
+      label = WD[a.getDay()]+" "+a.getDate()+" "+MON[a.getMonth()]+yr(a);
+    } else if(a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()){
+      label = WD[a.getDay()]+" "+a.getDate()+" – "+WD[b.getDay()]+" "+b.getDate()+" "+MON[b.getMonth()]+yr(b);
+    } else {
+      label = WD[a.getDay()]+" "+a.getDate()+" "+MON[a.getMonth()]+yr(a)
+            +" – "+WD[b.getDay()]+" "+b.getDate()+" "+MON[b.getMonth()]+yr(b);
+    }
+    const meta = g.type === "half" ? "Half day" : "";
+    return { label, meta, today: g.start === todayKey(), half: g.type === "half" };
+  });
 }
 
 function peopleHTML(){
   const list = filter === "all" ? roster() : roster().filter(m => m.id === filter);
   let h = `<div class="card">`;
   for(const m of list){
+    const rows = upcomingList(m.id);
     const t = daysOf(m.id)[todayKey()];
     h += `<div class="person"><div class="p-top">${avatar(m)}
       <div><div class="p-name">${esc(m.name)}${m.id===meId ? " · you" : ""}${teamDoc.leadId===m.id ? " ★" : ""}</div>
       <div class="p-sub">${t ? (t === "half" ? "Half day today" : "On leave today") : "In today"}</div></div>
-      <div class="p-count"><b>${upcoming(m.id).length}</b>upcoming</div></div>
-      ${stripHTML(m.id)}<div class="dates">${rangeText(m.id)}</div></div>`;
+      <div class="p-count"><b>${rows.length}</b>upcoming</div></div>`;
+    if(rows.length){
+      h += `<ul class="llist">`;
+      for(const r of rows)
+        h += `<li><span class="ld">${esc(r.label)}</span>${
+          r.today ? `<span class="lt hi">Today</span>` : ""}${
+          r.meta ? `<span class="lt${r.half ? " hi" : ""}">${esc(r.meta)}</span>` : ""}</li>`;
+      h += `</ul>`;
+    } else {
+      h += `<div class="none">No leaves coming up</div>`;
+    }
+    h += `</div>`;
   }
-  return h+`</div><div class="legend"><span>Strip shows ${MON[cursor.getMonth()]} day by day. Change month on the Calendar tab.</span></div>`;
+  return h+`</div><div class="legend"><span>Upcoming leaves only. Switch to Calendar for a month at a glance.</span></div>`;
 }
 
 function footHTML(){
@@ -831,7 +834,7 @@ function shareSheetHTML(){
   const link = appLink();
   const msg = `Team leave tracker:\n${link}\n\nTap the link, then install it — Android: \u22EE menu \u2192 Install app. iPhone: open in Safari \u2192 Share \u2192 Add to Home Screen.\n\nOpen it from the new icon, pick your team, then tap your own name. After that just tap dates to mark your leaves.`;
   return `<h3>Share the app</h3>
-    <div class="sub">One link for everyone, every team</div>
+    <div class="sub">Everyone uses this link and picks their team on first open</div>
     <div class="linkbox">${esc(link)}</div>
     <div class="act">
       <button class="btn primary" data-act="copylink">Copy link</button>
