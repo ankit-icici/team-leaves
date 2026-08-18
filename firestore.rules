@@ -1,35 +1,65 @@
 rules_version = '2';
 
-// Team Leaves — paste this into Firebase console → Firestore Database → Rules
+// Team Leaves v4 — one link for everyone, teams chosen in the app.
+// Paste into Firebase console → Firestore Database → Rules → Publish.
 //
-// What this does:
-//   • Only clients signed in through your app can read or write.
-//   • Nothing outside teams/{teamId} is reachable at all.
-//   • Documents can be created and updated, but never deleted outright,
-//     so nobody can wipe the team's history with one bad tap.
+// ⚠️  READ THIS BEFORE YOU PUBLISH — THE SEPARATION MODEL CHANGED
+//
+// In v3, each team's ID was a secret carried in its own link, and listing teams
+// was forbidden. That made team separation a SERVER guarantee.
+//
+// In v4 there is one link and no codes, so the app must be able to list every
+// team to show the "which team are you in?" picker. That means:
+//
+//   • Every team NAME is visible to anyone who opens the app.
+//   • Any team's LEAVES are readable by someone who deliberately goes looking,
+//     using nothing more than the browser's developer tools.
+//
+// The app shows a person only their own team. That is a courtesy of the app,
+// NOT a rule enforced here. There is no way to enforce it without knowing who
+// is asking, and nobody signs in.
+//
+// This is a deliberate, informed trade for zero-friction rollout inside one
+// department. Do not extend it across functions, or to anything you would
+// describe to a colleague as confidential, without adding sign-in first.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Anonymous sign-in happens invisibly — nobody types anything. It stops
+    // the database being read by scripts that never loaded the app at all.
+    function client() {
+      return request.auth != null;
+    }
+
     match /teams/{teamId} {
 
-      // The roster: teams/{teamId}/meta/roster
-      match /meta/{docId} {
-        allow read:   if request.auth != null;
-        allow create: if request.auth != null;
-        allow update: if request.auth != null;
-        allow delete: if false;
-      }
+      // `list` is what powers the team picker — and what makes every team
+      // visible. This single word is the whole difference from v3.
+      allow get, list: if client();
 
-      // One document per calendar year: teams/{teamId}/years/2026
+      allow create: if client()
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.name.size() < 80;
+
+      allow update: if client();
+
+      // Nothing can be hard-deleted from the app, so no accidental wipes.
+      allow delete: if false;
+
+      // One document per calendar year holding every member's dates.
+      // Writes use field-level merges, so two people marking different dates
+      // at the same moment cannot overwrite each other.
       match /years/{year} {
-        allow read:   if request.auth != null;
-        allow create: if request.auth != null;
-        allow update: if request.auth != null;
-        allow delete: if false;
+        allow read:           if client();
+        allow create, update: if client();
+        allow delete:         if false;
       }
 
-      allow read, write: if false;
+      match /{rest=**} {
+        allow read, write: if false;
+      }
     }
 
     match /{document=**} {
