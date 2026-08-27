@@ -158,6 +158,10 @@
   .or{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:11px;font-weight:750;letter-spacing:1px;margin:16px 0}
   .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
 
+  .drift{padding:14px 16px;display:flex;flex-direction:column;gap:6px;border-color:#FBE3B0;background:#FFFCF5}
+  .drift b{font-size:14px;font-weight:750;color:#8A5A00}
+  .drift span{font-size:12.5px;color:var(--ink-2);line-height:1.55}
+  .drift button{align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:750;color:#fff;background:#B8860B;padding:8px 14px;border-radius:999px}
   .hint{padding:0 20px;font-size:12.5px;color:var(--ink-3);text-align:center;line-height:1.6}
   .skel{padding:70px 0;text-align:center;color:var(--ink-3);font-size:13.5px;font-weight:600}
   .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:90;background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:650;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;box-shadow:0 8px 24px rgba(42,28,20,.28);max-width:88vw;text-align:center}
@@ -254,6 +258,8 @@ let cacheState = {};      // one entry per live listener
 let staleTimer = null;
 let openSheet_ = null;
 let pendingRestore = null;   // a parsed backup waiting for confirmation
+let mismatch = null;         // {checked:bool, rows:[{tid,name,mid,missing:[],extra:[]}]}
+let mismatchChecked = false;
 let rangeMode = false;      // "Select range" toggle
 let anchorKey = null;       // first date of a range being built
 let hoverKey = null;        // date currently under the finger
@@ -421,6 +427,9 @@ function openTeam(id){
       const y = new Date().getFullYear();
       watchYear(y); watchYear(y+1);
       render();
+      if(!mismatchChecked && meId && myTargets().targets.length > 1){
+        setTimeout(() => { checkMismatch().then(() => render()); }, 1200);
+      }
     },
     err => {
       net.error = err.code || "unavailable";
@@ -595,6 +604,99 @@ function myTargets(){
     else missing.push(t.name);
   }
   return { targets:out, missing };
+}
+
+/* My marked dates in one team, read straight from that team's year documents.
+   Works for teams that aren't currently open. */
+async function myDatesIn(targetTid, mid){
+  const out = new Set();
+  const snap = await getDocs(collection(db, "teams", targetTid, "years"));
+  snap.forEach(d => {
+    const days = ((d.data() || {}).days || {})[mid] || {};
+    for(const k of Object.keys(days)) out.add(k);
+  });
+  return out;
+}
+
+/* Compare my dates across every team this phone is mapped to, against the team
+   currently open. Mirroring only ever covered teams that were set up at the
+   moment of marking, so these can legitimately drift apart. */
+async function checkMismatch(){
+  mismatchChecked = true;
+  mismatch = null;
+  if(!meId || !tid) return null;
+  const { targets } = myTargets();
+  if(targets.length < 2) return null;
+  const today = todayKey();
+  try {
+    const mine = await myDatesIn(tid, meId);
+    const rows = [];
+    for(const t of targets){
+      if(t.tid === tid) continue;
+      const theirs = await myDatesIn(t.tid, t.mid);
+      // only care about dates from today on — history is allowed to differ
+      const missing = Array.from(mine).filter(k => k >= today && !theirs.has(k)).sort();
+      const extra   = Array.from(theirs).filter(k => k >= today && !mine.has(k)).sort();
+      if(missing.length || extra.length)
+        rows.push({ tid:t.tid, name:t.name, mid:t.mid, missing, extra });
+    }
+    mismatch = rows.length ? { rows } : null;
+  } catch(e){ mismatch = null; }
+  return mismatch;
+}
+
+/* Make every mapped team match the team currently open. Predictable in the
+   direction that matters: what you see is what everyone gets. */
+async function syncMyLeaves(){
+  if(!mismatch || !mismatch.rows.length) return;
+  toast("Syncing your leaves…");
+  let added = 0, removed = 0, failed = 0;
+  for(const row of mismatch.rows){
+    try {
+      const byYear = {};
+      for(const k of row.missing){
+        const y = k.slice(0,4);
+        if(!byYear[y]) byYear[y] = {};
+        byYear[y][k] = "full";
+      }
+      for(const k of row.extra){
+        const y = k.slice(0,4);
+        if(!byYear[y]) byYear[y] = {};
+        byYear[y][k] = deleteField();
+      }
+      for(const y of Object.keys(byYear))
+        await setDoc(doc(db, "teams", row.tid, "years", y),
+          { days: { [row.mid]: byYear[y] } }, { merge:true });
+      added += row.missing.length; removed += row.extra.length;
+    } catch(e){ failed++; }
+  }
+  mismatch = null;
+  closeSheet();
+  toast("Your teams now match"
+        + (added ? " · "+added+" added" : "")
+        + (removed ? " · "+removed+" removed" : "")
+        + (failed ? " · "+failed+" failed" : ""));
+  render();
+}
+
+/* Clear one person's leave on one date, in THIS team only.
+   Deliberately NOT mirrored across teams: a lead is responsible for their own
+   team and has no business editing that person's other teams — and no way to
+   know what they are. */
+async function clearFor(memberId, k){
+  if(!iAmLead()){ toast("Only the team lead can do that"); return; }
+  const mm = member(memberId);
+  if(!mm) return;
+  const y = k.slice(0,4);
+  watchYear(y);
+  try {
+    await setDoc(doc(db, "teams", tid, "years", y),
+      { days: { [memberId]: { [k]: deleteField() } } }, { merge:true });
+    // optimistic, so the sheet updates even before the listener fires
+    if(yearData[y] && yearData[y][memberId]) delete yearData[y][memberId][k];
+    rebuild(); render(); refreshSheet();
+    toast("Cleared "+esc(mm.name.split(" ")[0])+"'s leave");
+  } catch(e){ toast("Couldn't clear it — are you online?"); }
 }
 
 /* Mark or unmark any number of dates, across every team at once. */
@@ -905,6 +1007,7 @@ function render(){
   if(phase === "pick"){ $body.innerHTML = noTeamHTML(); return; }
   if(!roster().length){ $body.innerHTML = teamsBarHTML() + emptyTeamHTML(); return; }
   $body.innerHTML = teamsBarHTML() + segHTML() + chipsHTML()
+    + mismatchHTML()
     + (view === "calendar" ? calendarHTML() : peopleHTML()) + footHTML();
   if(openSheet_) refreshSheet();
 }
@@ -1110,6 +1213,17 @@ function peopleHTML(){
   return h+`</div><div class="legend"><span>Upcoming leaves only. Switch to Calendar for a month at a glance.</span></div>`;
 }
 
+function mismatchHTML(){
+  if(!mismatch || !mismatch.rows.length) return "";
+  const n = mismatch.rows.reduce((a,r) => a + r.missing.length + r.extra.length, 0);
+  return `<div class="card drift">
+    <b>Your leaves don't match across your teams</b>
+    <span>${n} ${n===1?"difference":"differences"} in ${mismatch.rows.length} other ${
+      mismatch.rows.length===1?"team":"teams"}. This happens when a team was joined after
+      a leave was marked.</span>
+    <button data-act="drift">Review and fix</button></div>`;
+}
+
 function footHTML(){
   return `<div class="card" style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn flat" data-act="manage" style="flex:1;min-width:120px">${iAmLead() ? "Manage team" : "Team members"}</button>
@@ -1136,6 +1250,7 @@ function refreshSheet(){
   if(t === "day"){ showSheet(daySheetHTML(openSheet_.k)); return; }
   if(t === "share"){ showSheet(shareSheetHTML()); return; }
   if(t === "newteam" || t === "editmember" || t === "restore") return;   // never clobber a form or preview
+  if(t === "drift"){ showSheet(driftSheetHTML()); return; }
   if(t === "manage"){
     const keep = {};
     for(const id of ["amName","tmRename"]){
@@ -1155,14 +1270,25 @@ function daySheetHTML(k){
   const mine = meId ? daysOf(meId)[k] : null;
   let h = `<h3>${longDate(k)}</h3>
     <div class="sub">${out.length ? out.length+(out.length===1?" person":" people")+" out" : "Nobody on leave"} · ${esc(teamDoc.name)}</div>`;
+  const lead = iAmLead();
   h += out.length
-    ? `<ul class="out-list">${out.map(o => `<li>${avatar(o.m)}<span>${esc(o.m.name)}</span></li>`).join("")}</ul>`
+    ? `<ul class="out-list">${out.map(o => `<li>${avatar(o.m)}<span>${esc(o.m.name)}</span>${
+        lead ? `<button class="mini" data-act="lead-clear" data-id="${o.m.id}" data-k="${k}"
+                 title="Clear ${esc(o.m.name)}'s leave">✕</button>` : ""}</li>`).join("")}</ul>`
     : `<p class="empty-out">Full team available.</p>`;
+
   h += `<div class="act">`;
   if(meId && k >= todayKey())
     h += `<button class="btn ${mine ? "danger" : "primary"}" data-act="toggle" data-k="${k}">${
       mine ? "Remove my leave" : "Mark my leave"}</button>`;
   h += `<button class="btn flat" data-act="close">Close</button></div>`;
+  if(lead && out.length)
+    h += `<p style="font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.6">
+      As lead you can clear anyone's leave here, including past dates. It only affects
+      ${esc(teamDoc.name)} — not that person's other teams.</p>`;
+  else if(!lead && k < todayKey())
+    h += `<p style="font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.6">
+      Past dates are fixed. Ask ${esc(leadName().split(" ")[0])} if something here is wrong.</p>`;
   return h;
 }
 
@@ -1289,6 +1415,34 @@ function restoreSheetHTML(){
   return h;
 }
 
+function driftSheetHTML(){
+  if(!mismatch || !mismatch.rows.length)
+    return `<h3>All matched</h3><div class="sub">Your teams already agree</div>
+      <div class="act"><button class="btn flat" data-act="close">Close</button></div>`;
+  const fmt = k => { const d = parse(k);
+    return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]+" "+d.getDate()+" "+MON[d.getMonth()]; };
+  let h = `<h3>Fix my leaves</h3>
+    <div class="sub">Compared against ${esc(teamDoc.name)}</div>`;
+  for(const r of mismatch.rows){
+    h += `<div style="margin:0 0 14px">
+      <div style="font-weight:700;font-size:14.5px">${esc(r.name)}</div>`;
+    if(r.missing.length)
+      h += `<div style="font-size:13px;color:var(--o-700);margin-top:3px">
+        Will be added: ${esc(r.missing.map(fmt).join(", "))}</div>`;
+    if(r.extra.length)
+      h += `<div style="font-size:13px;color:#9F1239;margin-top:3px">
+        Will be removed: ${esc(r.extra.map(fmt).join(", "))}</div>`;
+    h += `</div>`;
+  }
+  h += `<p style="font-size:12.5px;color:var(--ink-3);margin:0 0 4px;line-height:1.6">
+      Every team will be made to match <b>${esc(teamDoc.name)}</b> — the one you're looking at.
+      If ${esc(teamDoc.name)} is the one that's wrong, fix it here first, then come back.</p>
+    <div class="act">
+      <button class="btn primary" data-act="drift-sync">Make all my teams match ${esc(teamDoc.name)}</button>
+      <button class="btn flat" data-act="close">Not now</button></div>`;
+  return h;
+}
+
 function newTeamSheetHTML(){
   return `<h3>Create a team</h3>
     <div class="sub">You'll be its lead</div>
@@ -1321,6 +1475,7 @@ function accountSheetHTML(){
       <button class="btn flat" data-act="pick">Join another team</button>
       <button class="btn flat" data-act="share">Share the app</button>
       <button class="btn flat" data-act="newteam">Create another team</button>
+      <button class="btn flat" data-act="recheck">Check my leaves match across teams</button>
       <button class="btn flat" data-act="export-all">Back up all my teams</button>`;
   h += `<button class="btn danger" data-act="forget">Leave ${esc(teamDoc.name)} on this phone</button>`;
   h += `<button class="btn flat" data-act="close">Close</button></div>
@@ -1403,6 +1558,13 @@ document.addEventListener("click", async e => {
     lsSet("me:"+tid, meId);
     refreshSheet(); render();
     toast("Hi "+esc(me().name.split(" ")[0])+" — tap dates to mark your leave");
+    // Newly identified in this team: your leaves elsewhere never reached it,
+    // so check straight away rather than waiting for you to notice.
+    if(myTargets().targets.length > 1){
+      await checkMismatch();
+      render();
+      if(mismatch){ openSheet_ = { type:"drift" }; showSheet(driftSheetHTML()); }
+    }
     return;
   }
   if(act === "editm"){
@@ -1417,6 +1579,14 @@ document.addEventListener("click", async e => {
     const i = document.getElementById("emName");
     const ok = await renameMember(el.getAttribute("data-id"), i ? i.value : "");
     if(ok){ openSheet_ = { type:"manage" }; showSheet(manageSheetHTML()); render(); }
+    return;
+  }
+  if(act === "lead-clear"){
+    const id = el.getAttribute("data-id"), k = el.getAttribute("data-k");
+    const mm = member(id);
+    if(!mm) return;
+    if(!confirm("Clear "+mm.name+"'s leave on "+longDate(k)+"?\n\nOnly affects "+teamDoc.name+".")) return;
+    await clearFor(id, k);
     return;
   }
   if(act === "makelead"){ await makeLead(el.getAttribute("data-id")); return; }
@@ -1443,6 +1613,17 @@ document.addEventListener("click", async e => {
   }
   if(act === "export"){ exportJSON(); return; }
   if(act === "export-all"){ await exportAllTeams(); return; }
+  if(act === "drift"){ openSheet_ = { type:"drift" }; showSheet(driftSheetHTML()); return; }
+  if(act === "drift-sync"){ await syncMyLeaves(); return; }
+  if(act === "recheck"){
+    closeSheet();
+    toast("Checking your teams…");
+    await checkMismatch();
+    render();
+    if(mismatch){ openSheet_ = { type:"drift" }; showSheet(driftSheetHTML()); }
+    else toast("Your teams already match");
+    return;
+  }
   if(act === "restore"){ pickRestoreFile(); return; }
   if(act === "rs-all-merge"){ await applyRestoreAll("merge"); return; }
   if(act === "rs-all-replace"){
@@ -1553,7 +1734,11 @@ document.addEventListener("click", async e => {
 
     reset();
     if(wasHandled || scrolled) return;
-    if(startKey < todayKey()){ toast("Past dates can't be changed"); return; }
+    if(startKey < todayKey()){
+      if(iAmLead()){ openSheet_ = { type:"day", k:startKey }; showSheet(daySheetHTML(startKey)); }
+      else toast("Past dates are fixed — ask your team lead");
+      return;
+    }
     if(!meId){ openWhoami(); return; }
     await writeLeaves([startKey], !daysOf(meId)[startKey]);
   });
