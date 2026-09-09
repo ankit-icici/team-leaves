@@ -115,9 +115,21 @@
 
   .scrim{position:fixed;inset:0;background:rgba(42,28,20,.42);z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
   .scrim.on{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--white);border-radius:24px 24px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(102%);transition:transform .28s cubic-bezier(.22,.9,.28,1);max-height:88vh;overflow-y:auto;max-width:560px;margin:0 auto;box-shadow:0 -10px 40px rgba(42,28,20,.2)}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--white);border-radius:24px 24px 0 0;padding:0 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(102%);transition:transform .28s cubic-bezier(.22,.9,.28,1);max-height:88vh;overflow-y:auto;max-width:560px;margin:0 auto;box-shadow:0 -10px 40px rgba(42,28,20,.2)}
   .sheet.on{transform:translateY(0)}
-  .handle{width:38px;height:4px;border-radius:99px;background:var(--line);margin:2px auto 14px}
+  /* Sticky so the way out stays reachable on a long sheet — iPhone standalone
+     has no system Back, so this control is the only one on that platform. */
+  .shead{position:sticky;top:0;z-index:3;background:var(--white);
+         display:grid;grid-template-columns:44px 1fr 44px;align-items:center;
+         /* spans the sheet's full width and owns its top padding, so nothing
+            can scroll through the gap above it */
+         margin:0 -18px 6px;padding:10px 18px 8px}
+  .handle{width:38px;height:4px;border-radius:99px;background:var(--line);
+          grid-column:2;margin:0 auto}
+  .navback{grid-column:1;justify-self:start;width:44px;height:44px;
+           display:grid;place-items:center;border-radius:999px;
+           font-size:19px;line-height:1;color:var(--ink-2)}
+  .navback:active{background:var(--o-050);color:var(--o-700)}
   .sheet h3{margin:0 0 2px;font-size:20px;font-weight:750;letter-spacing:-.4px}
   .sheet .sub{font-size:13px;color:var(--ink-3);font-weight:600;margin-bottom:16px}
   .act{display:flex;flex-direction:column;gap:8px;margin:4px 0 6px}
@@ -132,6 +144,15 @@
   .out-list li{display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:600}
   .out-list .av{width:28px;height:28px;font-size:11px}
   .empty-out{font-size:14px;color:var(--ink-3);margin:0 0 18px}
+  .sug{margin:-6px 0 12px;border:1px solid var(--line);border-radius:14px;
+       overflow:hidden;background:var(--paper)}
+  .sugrow{display:block;width:100%;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .sugrow:last-of-type{border-bottom:0}
+  .sugrow b{display:block;font-size:14px;font-weight:650}
+  .sugrow span{display:block;font-size:11.5px;color:var(--ink-3);margin-top:1px}
+  .sugrow:active{background:var(--o-050)}
+  .sugnote{font-size:11.5px;color:var(--ink-3);line-height:1.5;margin:0;
+           padding:8px 12px;border-top:1px solid var(--line);background:var(--white)}
   .fld{margin:0 0 12px}
   .fld label{display:block;font-size:10.5px;font-weight:750;letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
   .fld input{width:100%;padding:13px 14px;border-radius:13px;border:1px solid var(--line);background:var(--paper);font-size:15px}
@@ -146,6 +167,11 @@
   .mlist .lead{font-size:10px;font-weight:750;letter-spacing:.6px;color:var(--o-700);background:var(--o-050);padding:3px 7px;border-radius:999px;flex:0 0 auto}
   .mlist .pick{font-size:12.5px;font-weight:700;color:var(--o-700);flex:0 0 auto}
   .mlist .mini{font-size:16px;color:var(--ink-3);padding:2px 5px;line-height:1;flex:0 0 auto}
+  .ver{float:right;font-variant-numeric:tabular-nums;opacity:.75}
+  .mlist .av.dim{opacity:.38}
+  .mlist li.ghost .who b{font-weight:600;color:var(--ink-2)}
+  .mlist .grouphd{padding:14px 0 6px;border-bottom:0;font-size:11px;font-weight:750;
+                  letter-spacing:.6px;text-transform:uppercase;color:var(--ink-3);display:block}
 
   .linkbox{background:var(--o-050);border:1px solid var(--o-100);color:var(--o-700);padding:12px;border-radius:12px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;margin:0 0 12px;line-height:1.5}
   .gate{padding:26px 20px}
@@ -241,10 +267,11 @@ if(CONFIGURED){
 /* ═══════════════════════════════════════════════════════════
    ②  State
    ═══════════════════════════════════════════════════════════ */
-let allTeams = [];     // [{id, name, size}]  EVERY team — this is the picker list
+let allTeams = [];     // [{id, name, size, members}]  EVERY team — the picker list, and
+                       // the only source the people suggestions need
 let known = [];        // [{id, name}]  teams this person has joined on this phone
 let tid = null;        // current team id
-let teamDoc = null;    // { name, leadId, members:[{id,name,color}] }
+let teamDoc = null;    // { name, leadId, members:[{id,name,color}], formerMembers:[{id,name,color,removedAt}] }
 let yearData = {};     // { "2026": { memberId: { dateKey: type } } }
 let leaves = {};       // flattened { memberId: { dateKey: type } }
 let meId = null;       // which member I am, on THIS device, for THIS team
@@ -265,6 +292,12 @@ let anchorKey = null;       // first date of a range being built
 let hoverKey = null;        // date currently under the finger
 let dragging = false;
 
+/* Removing someone parks them here instead of deleting their dates. Bounded so
+   the team document can't grow without limit on a long-lived team. */
+const FORMER_CAP = 200;
+/* Bump this together with CACHE in sw.js on every upload — it is the only way
+   to tell from a phone which version is actually running. */
+const APP_VERSION = "v21";
 const COLORS = ["#F37E20","#8A1538","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#A16207","#7C2D12","#0E7490"];
 const DOW = ["M","T","W","T","F","S","S"];
@@ -305,6 +338,16 @@ function initials(name){
 }
 function roster(){ return teamDoc && Array.isArray(teamDoc.members) ? teamDoc.members : []; }
 function member(id){ return roster().find(m => m.id === id) || null; }
+/* People removed from the roster. They are invisible everywhere the app draws
+   from roster(), but their marked dates stay in the year documents, dormant,
+   so adding them back brings their leaves with them. */
+function formerRoster(){ return teamDoc && Array.isArray(teamDoc.formerMembers) ? teamDoc.formerMembers : []; }
+function formerMember(id){ return formerRoster().find(m => m.id === id) || null; }
+function shortWhen(iso){
+  const d = new Date(iso);
+  if(!iso || isNaN(d.getTime())) return "";
+  return d.getDate()+" "+MON[d.getMonth()]+" "+d.getFullYear();
+}
 function me(){ return member(meId); }
 function iAmLead(){ return !!(teamDoc && meId && teamDoc.leadId === meId); }
 function leadName(){ const m = member(teamDoc ? teamDoc.leadId : null); return m ? m.name : "nobody yet"; }
@@ -357,6 +400,75 @@ function rememberTeam(id, name){
 function forgetTeam(id){
   known = known.filter(t => t.id !== id);
   saveKnown();
+  // remember the decision, or adoptMyTeams() would hand the team straight back
+  const left = loadLeft();
+  if(!left.includes(id)){ left.push(id); lsSet("left", JSON.stringify(left)); }
+}
+function loadLeft(){
+  try { const j = JSON.parse(lsGet("left") || "[]"); return Array.isArray(j) ? j : []; }
+  catch(e){ return []; }
+}
+
+/* ── Who this phone is ───────────────────────────────────────────
+   A member id is minted once for a person and then travels with them: when a
+   lead adds someone who is already on another team, the same id is reused. So
+   the id is effectively that person's identity, and a phone that has claimed it
+   in one team can recognise itself in every other team without being asked
+   again. Ids are random, so a match is never a coincidence. */
+function myIds(){
+  const out = new Set();
+  const solo = lsGet("meId"); if(solo) out.add(solo);
+  for(const t of known){ const v = lsGet("me:"+t.id); if(v) out.add(v); }
+  return out;
+}
+function claimMeId(teamId, mid){
+  meId = mid;
+  lsSet("me:"+teamId, mid);
+  lsSet("meId", mid);
+}
+/* Only ever act on an unambiguous match — if two roster entries carry ids this
+   phone owns, something is wrong and the person should pick for themselves. */
+function resolveMeId(teamId, members){
+  const explicit = lsGet("me:"+teamId);
+  if(explicit) return explicit;
+  const mine = myIds();
+  const hit = (members || []).filter(m => mine.has(m.id));
+  return hit.length === 1 ? hit[0].id : null;
+}
+/* A lead added me to a team from their phone: pick it up rather than waiting to
+   be told. Teams deliberately left behind stay left behind. */
+function adoptMyTeams(){
+  const mine = myIds();
+  if(!mine.size) return;
+  const left = loadLeft();
+  let n = 0;
+  for(const t of allTeams){
+    if(known.some(k => k.id === t.id) || left.includes(t.id)) continue;
+    const hit = (t.members || []).filter(m => mine.has(m.id));
+    if(hit.length !== 1) continue;
+    rememberTeam(t.id, t.name);
+    lsSet("me:"+t.id, hit[0].id);
+    n++;
+  }
+  if(n){
+    toast(n === 1 ? "You've been added to a team" : "You've been added to "+n+" teams");
+    render();
+  }
+}
+
+/* Everyone on any roster anywhere, folded together by member id. Costs nothing:
+   these rosters are already in memory from the teams listener. */
+function knownPeople(){
+  const byId = new Map();
+  for(const t of allTeams){
+    for(const m of (t.members || [])){
+      const e = byId.get(m.id) || { id:m.id, name:m.name, teams:[] };
+      e.name = m.name;
+      if(!e.teams.includes(t.name)) e.teams.push(t.name);
+      byId.set(m.id, e);
+    }
+  }
+  return Array.from(byId.values());
 }
 function joinTeam(id){
   const t = allTeams.find(x => x.id === id);
@@ -375,8 +487,8 @@ function watchAllTeams(){
     snap => {
       allTeams = snap.docs.map(d => {
         const v = d.data() || {};
-        return { id:d.id, name:v.name || "Untitled team",
-                 size:Array.isArray(v.members) ? v.members.length : 0 };
+        const mem = Array.isArray(v.members) ? v.members : [];
+        return { id:d.id, name:v.name || "Untitled team", members:mem, size:mem.length };
       }).sort((a,b) => String(a.name).localeCompare(String(b.name)));
       // keep locally-stored names fresh if a lead renames a team
       let changed = false;
@@ -385,6 +497,7 @@ function watchAllTeams(){
         if(hit && hit.name !== k.name){ k.name = hit.name; changed = true; }
       }
       if(changed) saveKnown();
+      adoptMyTeams();
       if(phase === "pick") render();
     },
     err => { net.error = err.code || "unavailable"; render(); }
@@ -423,6 +536,10 @@ function openTeam(id){
       net.error = null;
       rememberTeam(id, teamDoc.name);
       if(meId && !member(meId)){ meId = null; lsSet("me:"+id, ""); }
+      if(!meId){
+        const auto = resolveMeId(id, roster());
+        if(auto){ claimMeId(id, auto); toast("You're on "+esc(teamDoc.name)+" — tap dates to mark your leave"); }
+      }
       phase = "app";
       const y = new Date().getFullYear();
       watchYear(y); watchYear(y+1);
@@ -507,24 +624,66 @@ async function createTeam(name, myName){
   } catch(e){ toast("Couldn't create the team. Are you online?"); return null; }
 }
 
-async function addMember(name){
+/* Copy someone's still-to-come leaves in from the other teams they are on, so
+   a person added today doesn't look free for dates they already booked. */
+async function copyUpcomingInto(mid){
+  const today = todayKey(), dates = new Set();
+  for(const t of allTeams){
+    if(t.id === tid) continue;
+    if(!(t.members || []).some(m => m.id === mid)) continue;
+    try {
+      const ys = await getDocs(collection(db, "teams", t.id, "years"));
+      ys.forEach(d => {
+        const days = ((d.data() || {}).days || {})[mid] || {};
+        for(const k of Object.keys(days)) if(k >= today) dates.add(k);
+      });
+    } catch(e){}
+  }
+  if(!dates.size) return 0;
+  const byYear = {};
+  for(const k of dates){ const y = k.slice(0,4); (byYear[y] = byYear[y] || {})[k] = "full"; }
+  for(const y of Object.keys(byYear))
+    await setDoc(doc(db, "teams", tid, "years", y), { days: { [mid]: byYear[y] } }, { merge:true });
+  return dates.size;
+}
+
+/* opts.id — add this exact person (picked from the suggestions), reusing the
+   member id they already have elsewhere rather than minting a new one. */
+async function addMember(name, opts){
+  opts = opts || {};
   name = String(name||"").trim().replace(/\s+/g," ");
   if(!name){ toast("Enter a name"); return null; }
+  if(opts.id && roster().some(m => m.id === opts.id)){
+    toast(esc(name)+" is already on this team"); return null;
+  }
   if(roster().some(m => m.name.toLowerCase() === name.toLowerCase())){
     toast(esc(name)+" is already on this team"); return null;
   }
-  const mid = newMemberId();
+  /* If this name was removed before, take back their original member id — the
+     dormant dates in the year documents are keyed by it, so they reappear. */
+  let finalId = null, restored = false;
   try {
     await runTransaction(db, async tx => {
       const ref = doc(db, "teams", tid);
       const snap = await tx.get(ref);
       if(!snap.exists()) throw new Error("gone");
-      const cur = Array.isArray(snap.data().members) ? snap.data().members : [];
-      if(cur.some(m => m.name.toLowerCase() === name.toLowerCase())) return;
-      tx.set(ref, { members: cur.concat([{ id:mid, name, color:COLORS[cur.length % COLORS.length] }]) },
-             { merge:true });
+      const d = snap.data() || {};
+      const cur = Array.isArray(d.members) ? d.members : [];
+      const dup = cur.find(m => m.name.toLowerCase() === name.toLowerCase());
+      if(dup){ finalId = dup.id; restored = false; return; }
+      const former = Array.isArray(d.formerMembers) ? d.formerMembers : [];
+      const prev = former.find(x => x.id === opts.id) ||
+                   (opts.id ? null : former.find(x => String(x.name).toLowerCase() === name.toLowerCase()));
+      const entry = { id: opts.id || (prev ? prev.id : newMemberId()), name,
+                      color: (prev && prev.color) || COLORS[cur.length % COLORS.length] };
+      finalId = entry.id; restored = !!prev;
+      tx.set(ref, { members: cur.concat([entry]),
+                    formerMembers: former.filter(x => x.id !== entry.id) }, { merge:true });
     });
-    return mid;
+    if(!finalId) return null;
+    let copied = 0;
+    if(opts.id) { try { copied = await copyUpcomingInto(finalId); } catch(e){} }
+    return { id:finalId, restored, copied };
   } catch(e){ toast("Adding people needs internet."); return null; }
 }
 
@@ -552,21 +711,82 @@ async function renameMember(id, name){
   } catch(e){ toast("Editing names needs internet."); return false; }
 }
 
+/* Removal is reversible: the person moves out of members and into
+   formerMembers, and their dates are left exactly where they are. Nothing draws
+   from formerMembers, so they vanish from the calendar, the list, the chips and
+   backups — but "Add back" in Manage team returns them, dates and all.
+   purgeFormer() is the one path that actually deletes the dates. */
 async function removeMember(id){
   if(id === teamDoc.leadId){ toast("Hand over the lead role first"); return; }
+  const gone = member(id);
   try {
     await runTransaction(db, async tx => {
       const ref = doc(db, "teams", tid);
       const snap = await tx.get(ref);
-      const cur = Array.isArray(snap.data().members) ? snap.data().members : [];
-      tx.set(ref, { members: cur.filter(m => m.id !== id) }, { merge:true });
+      if(!snap.exists()) throw new Error("gone");
+      const d = snap.data() || {};
+      const cur = Array.isArray(d.members) ? d.members : [];
+      const leaving = cur.find(m => m.id === id);
+      if(!leaving) return;
+      const former = (Array.isArray(d.formerMembers) ? d.formerMembers : []).filter(x => x.id !== id);
+      former.push({ id:leaving.id, name:leaving.name, color:leaving.color || COLORS[0],
+                    removedAt:new Date().toISOString() });
+      tx.set(ref, { members: cur.filter(m => m.id !== id),
+                    formerMembers: former.slice(-FORMER_CAP) }, { merge:true });
     });
-    for(const y of Object.keys(subs.years))
-      await setDoc(doc(db, "teams", tid, "years", y), { days: { [id]: deleteField() } }, { merge:true });
     if(meId === id){ meId = null; lsSet("me:"+tid, ""); }
     if(filter === id) filter = "all";
-    toast("Removed");
+    toast("Removed — "+(gone ? esc(gone.name.split(" ")[0])+"'s" : "their")+" leaves are kept if you add them back");
   } catch(e){ toast("Removing people needs internet."); }
+}
+
+/* Put a removed person back with their original member id. */
+async function restoreFormer(id){
+  if(!iAmLead()){ toast("Only the team lead can do that"); return; }
+  const f = formerMember(id);
+  if(!f) return;
+  if(roster().some(m => m.name.toLowerCase() === String(f.name).toLowerCase())){
+    toast(esc(f.name)+" is already on this team"); return;
+  }
+  try {
+    await runTransaction(db, async tx => {
+      const ref = doc(db, "teams", tid);
+      const snap = await tx.get(ref);
+      if(!snap.exists()) throw new Error("gone");
+      const d = snap.data() || {};
+      const cur = Array.isArray(d.members) ? d.members : [];
+      if(cur.some(m => m.id === id)) return;
+      const former = Array.isArray(d.formerMembers) ? d.formerMembers : [];
+      tx.set(ref, { members: cur.concat([{ id:f.id, name:f.name,
+                      color:f.color || COLORS[cur.length % COLORS.length] }]),
+                    formerMembers: former.filter(x => x.id !== id) }, { merge:true });
+    });
+    toast(esc(String(f.name).split(" ")[0])+" is back — with the leaves they had marked");
+  } catch(e){ toast("Adding people back needs internet."); }
+}
+
+/* The only thing in the app that really deletes someone's leaves. */
+async function purgeFormer(id){
+  if(!iAmLead()){ toast("Only the team lead can do that"); return; }
+  const f = formerMember(id);
+  if(!f) return;
+  try {
+    const years = [];
+    const ys = await getDocs(collection(db, "teams", tid, "years"));
+    ys.forEach(x => years.push(x.id));
+    for(const y of years)
+      await setDoc(doc(db, "teams", tid, "years", y), { days: { [id]: deleteField() } }, { merge:true });
+    await runTransaction(db, async tx => {
+      const ref = doc(db, "teams", tid);
+      const snap = await tx.get(ref);
+      if(!snap.exists()) throw new Error("gone");
+      const former = Array.isArray(snap.data().formerMembers) ? snap.data().formerMembers : [];
+      tx.set(ref, { formerMembers: former.filter(x => x.id !== id) }, { merge:true });
+    });
+    for(const y of Object.keys(yearData)) if(yearData[y]) delete yearData[y][id];
+    rebuild(); render();
+    toast("Deleted "+esc(String(f.name).split(" ")[0])+"'s leaves for good");
+  } catch(e){ toast("Couldn't delete — are you online?"); }
 }
 
 async function renameTeam(name){
@@ -597,10 +817,21 @@ async function makeLead(id){
    different member id in each team, so mirroring means writing the same dates
    under each of those ids. */
 function myTargets(){
-  const out = [], missing = [];
+  const out = [], missing = [], seen = new Set();
+  const mine = myIds();
+  const left = loadLeft();
+  // every team whose roster carries one of my ids — including teams a lead put
+  // me on that I have never opened
+  for(const t of allTeams){
+    if(left.includes(t.id)) continue;
+    const hit = (t.members || []).filter(m => mine.has(m.id));
+    if(hit.length === 1){ seen.add(t.id); out.push({ tid:t.id, mid:hit[0].id, name:t.name }); }
+  }
+  // plus anything this phone joined the old way, and hasn't been matched above
   for(const t of known){
+    if(seen.has(t.id)) continue;
     const mid = lsGet("me:"+t.id);
-    if(mid) out.push({ tid:t.id, mid, name:t.name });
+    if(mid){ seen.add(t.id); out.push({ tid:t.id, mid, name:t.name }); }
     else missing.push(t.name);
   }
   return { targets:out, missing };
@@ -865,8 +1096,7 @@ function pickRestoreFile(){
       toast("Checking the backup…");
       const plan = await buildRestorePlan(teams);
       pendingRestore = { teams, plan, fileName:f.name };
-      openSheet_ = { type:"restore" };
-      showSheet(restoreSheetHTML());
+      navSheet({ type:"restore" });
     } catch(e){ toast("Couldn't read that file — is it a Team Leaves backup?"); }
   });
   inp.click();
@@ -915,9 +1145,14 @@ async function restoreInto(targetTid, src, mode){
     await runTransaction(db, async tx => {
       const ref = doc(db, "teams", targetTid);
       const fresh = await tx.get(ref);
-      const existing = (fresh.exists() && Array.isArray(fresh.data().members)) ? fresh.data().members : [];
+      const fd = fresh.exists() ? (fresh.data() || {}) : {};
+      const existing = Array.isArray(fd.members) ? fd.members : [];
       const have = new Set(existing.map(x => x.id));
-      tx.set(ref, { members: existing.concat(added.filter(x => !have.has(x.id))) }, { merge:true });
+      const back = new Set(added.map(x => x.id));
+      const former = Array.isArray(fd.formerMembers) ? fd.formerMembers : [];
+      // anyone the backup puts back on the roster is no longer "removed"
+      tx.set(ref, { members: existing.concat(added.filter(x => !have.has(x.id))),
+                    formerMembers: former.filter(x => !back.has(x.id)) }, { merge:true });
     });
   }
 
@@ -925,11 +1160,20 @@ async function restoreInto(targetTid, src, mode){
     for(const y of Object.keys(wanted))
       await setDoc(doc(db, "teams", targetTid, "years", y), { days: wanted[y] }, { merge:true });
   } else {
-    const existingYears = [];
+    /* "Replace all" overwrites each year document outright. Dormant dates belong
+       to removed people, who are never in a backup — carry them through, or a
+       restore would silently do the deleting that removal deliberately doesn't. */
+    const dormant = new Set((Array.isArray(d.formerMembers) ? d.formerMembers : []).map(x => x.id));
+    const before = {};
     const ys = await getDocs(collection(db, "teams", targetTid, "years"));
-    ys.forEach(x => existingYears.push(x.id));
-    for(const y of Array.from(new Set(existingYears.concat(Object.keys(wanted)))))
-      await setDoc(doc(db, "teams", targetTid, "years", y), { days: wanted[y] || {} });
+    ys.forEach(x => { before[x.id] = (x.data() || {}).days || {}; });
+    for(const y of Array.from(new Set(Object.keys(before).concat(Object.keys(wanted))))){
+      const days = Object.assign({}, wanted[y] || {});
+      const prev = before[y] || {};
+      for(const mid of Object.keys(prev))
+        if(dormant.has(mid) && !days[mid]) days[mid] = prev[mid];
+      await setDoc(doc(db, "teams", targetTid, "years", y), { days });
+    }
   }
 
   const count = resolved.reduce((n,r) => n + r.dates.length, 0);
@@ -1228,7 +1472,7 @@ function footHTML(){
   return `<div class="card" style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn flat" data-act="manage" style="flex:1;min-width:120px">${iAmLead() ? "Manage team" : "Team members"}</button>
       <button class="btn flat" data-act="share" style="flex:1;min-width:120px">Share link</button></div>
-    <p class="hint">${iAmLead()
+    <p class="hint"><span class="ver">${APP_VERSION}</span>${iAmLead()
       ? "You're the lead — you add and remove people."
       : "Ask "+esc(leadName().split(" ")[0])+" to add or remove people."}</p>`;
 }
@@ -1237,11 +1481,118 @@ function footHTML(){
    ⑧  Sheets
    ═══════════════════════════════════════════════════════════ */
 const $sheet = document.getElementById("sheet"), $scrim = document.getElementById("scrim");
+/* An arrow when there's another sheet underneath to go back to, a cross when
+   this sheet is simply closing. Both do the same thing — one step back — but
+   they say where you'll land. */
+function sheetHeadHTML(){
+  const under = navStack.length > 1 ? navStack[navStack.length-2] : null;
+  const isBack = !!(under && under.screen === "sheet");
+  const label = isBack ? "Back" : "Close";
+  return `<div class="shead">
+    <button class="navback" data-act="back" aria-label="${label}" title="${label}">${
+      isBack ? "\u2190" : "\u2715"}</button>
+    <div class="handle"></div></div>`;
+}
 function showSheet(html){
-  $sheet.innerHTML = `<div class="handle"></div>`+html;
+  $sheet.innerHTML = sheetHeadHTML()+html;
   $sheet.classList.add("on"); $scrim.classList.add("on");
 }
-function closeSheet(){ openSheet_ = null; $sheet.classList.remove("on"); $scrim.classList.remove("on"); }
+function hideSheetNow(){ openSheet_ = null; $sheet.classList.remove("on"); $scrim.classList.remove("on"); }
+
+/* ═══════════════════════════════════════════════════════════
+   Back navigation
+
+   Every screen you can back out of — the team picker, Select-range mode and
+   each sheet — is one entry on navStack and one browser history entry. Android's
+   system Back and the back gesture pop the top screen instead of closing the
+   whole app, which is what they did before this existed.
+
+   The stack itself rides along in history.state, so a pop can never disagree
+   with what's on screen: popstate takes the stack it is handed and redraws from
+   it. Buttons never hide a sheet directly — they ask history to go back and let
+   popstate do the work, so tapping Done and pressing Back run the same path.
+   ═══════════════════════════════════════════════════════════ */
+let navStack = [];      // [{screen:"pick"} | {screen:"range"} | {screen:"sheet", s:{type,…}}]
+
+function sheetHTMLFor(x){
+  if(x.type === "day")        return daySheetHTML(x.k);
+  if(x.type === "manage")     return manageSheetHTML();
+  if(x.type === "share")      return shareSheetHTML();
+  if(x.type === "editmember") return editMemberSheetHTML(x.id);
+  if(x.type === "restore")    return restoreSheetHTML();
+  if(x.type === "drift")      return driftSheetHTML();
+  if(x.type === "newteam")    return newTeamSheetHTML();
+  if(x.type === "whoami")     return whoamiSheetHTML();
+  if(x.type === "account")    return accountSheetHTML();
+  return "";
+}
+
+/* Draw whatever the stack says. Modes are "is it anywhere in the stack" so a
+   sheet can sit on top of one; the sheet shown is the top entry, and only if
+   the top entry is a sheet. */
+function navApply(){
+  const top = navStack.length ? navStack[navStack.length-1] : null;
+  const wantPick  = navStack.some(x => x.screen === "pick");
+  const wantRange = navStack.some(x => x.screen === "range");
+  const wantSheet = (top && top.screen === "sheet") ? top.s : null;
+  let redraw = false;
+
+  if(wantPick && phase !== "pick"){
+    stopAll(); tid = null; teamDoc = null; phase = "pick"; redraw = true;
+  } else if(!wantPick && phase === "pick"){
+    const back = lsGet("lastTeam");
+    if(back && known.some(t => t.id === back)) openTeam(back);   // renders itself
+  }
+  if(rangeMode !== wantRange){
+    rangeMode = wantRange; anchorKey = null; hoverKey = null; redraw = true;
+  }
+  if(redraw) render();
+
+  if(wantSheet){
+    openSheet_ = wantSheet;
+    let html = "";
+    try { html = sheetHTMLFor(wantSheet); } catch(e){ html = ""; }
+    if(html) showSheet(html);        // else the next render draws it, once the team lands
+  } else if(openSheet_) hideSheetNow();
+}
+
+function navPush(entry){
+  navStack = navStack.concat([entry]);
+  try { history.pushState({ tlStack:navStack }, ""); } catch(e){}
+  navApply();
+}
+/* Swap the top screen without leaving a step to go back to — for a screen the
+   user is finished with, like the new-team form once the team exists. */
+function navReplace(entry){
+  if(!navStack.length) return navPush(entry);
+  navStack = navStack.slice(0,-1).concat([entry]);
+  try { history.replaceState({ tlStack:navStack }, ""); } catch(e){}
+  navApply();
+}
+function navSheet(x){ navPush({ screen:"sheet", s:x }); }
+function navBack(){
+  if(navStack.length){ try { history.back(); return; } catch(e){} }
+  navApply();
+}
+/* Done / Close / finishing an action: drop every sheet, keep any mode under it.
+   Hides first so nothing can redraw the sheet in the tick before popstate. */
+function closeSheet(){
+  let n = 0;
+  for(let i = navStack.length-1; i >= 0 && navStack[i].screen === "sheet"; i--) n++;
+  if(openSheet_) hideSheetNow();
+  if(n){ try { history.go(-n); } catch(e){} }
+}
+/* Back out of everything — used when the ground moves, e.g. switching teams. */
+function navReset(){
+  if(openSheet_) hideSheetNow();
+  if(navStack.length){ try { history.go(-navStack.length); } catch(e){} }
+}
+
+window.addEventListener("popstate", e => {
+  navStack = (e.state && Array.isArray(e.state.tlStack)) ? e.state.tlStack : [];
+  navApply();
+});
+
 $scrim.addEventListener("click", closeSheet);
 
 function refreshSheet(){
@@ -1262,6 +1613,8 @@ function refreshSheet(){
       const el = document.getElementById(id);
       if(el){ el.value = keep[id].v; if(keep[id].focused) el.focus(); }
     }
+    const sug = document.getElementById("amSug");
+    if(sug && keep.amName) sug.innerHTML = suggestHTML(keep.amName.v);
   }
 }
 
@@ -1292,6 +1645,24 @@ function daySheetHTML(k){
   return h;
 }
 
+/* Matches against everyone on any roster in the app. Picking one of these adds
+   THAT person — same member id — rather than a new someone with the same name. */
+function suggestHTML(q){
+  q = String(q||"").trim().toLowerCase();
+  if(q.length < 2) return "";
+  const here = new Set(roster().map(m => m.id));
+  const hits = knownPeople()
+    .filter(p => !here.has(p.id) && String(p.name).toLowerCase().includes(q))
+    .sort((a,b) => String(a.name).localeCompare(String(b.name)))
+    .slice(0, 6);
+  if(!hits.length) return "";
+  return `<div class="sug">${hits.map(p =>
+    `<button class="sugrow" data-act="am-pick" data-id="${p.id}" data-name="${esc(p.name)}">
+       <b>${esc(p.name)}</b><span>Already on ${esc(p.teams.join(" \u00B7 "))}</span></button>`).join("")}
+    <p class="sugnote">Tap a name to add that same person: their upcoming leaves come
+      across, and their phone picks up the new team on its own.</p></div>`;
+}
+
 function manageSheetHTML(){
   const lead = iAmLead();
   let h = `<h3>${esc(teamDoc.name)}</h3>
@@ -1303,6 +1674,7 @@ function manageSheetHTML(){
       <div class="act" style="margin-bottom:18px"><button class="btn flat" data-act="tm-rename">Save name</button></div>`;
     h += `<div class="fld"><label>Add someone</label>
       <input id="amName" placeholder="Their full name" autocomplete="off"></div>
+      <div id="amSug"></div>
       <div class="act" style="margin-bottom:14px"><button class="btn primary" data-act="am-add">Add to ${esc(teamDoc.name)}</button></div>`;
   }
 
@@ -1320,6 +1692,23 @@ function manageSheetHTML(){
     h += `</li>`;
   }
   h += `</ul>`;
+
+  const former = formerRoster();
+  if(lead && former.length){
+    h += `<ul class="mlist"><li class="grouphd">Removed \u00B7 leaves kept</li>`;
+    for(const f of former.slice().reverse()){
+      const when = shortWhen(f.removedAt);
+      h += `<li class="ghost">${avatar(f, "dim")}<div class="who"><b>${esc(f.name)}</b>
+        <span>${when ? "Removed "+esc(when) : "Removed"} \u00B7 leaves still saved</span></div>
+        <button class="pick" data-act="unrm" data-id="${f.id}">Add back</button>
+        <button class="mini" data-act="purge" data-id="${f.id}" title="Delete their leaves for good">\u2715</button></li>`;
+    }
+    h += `</ul>
+      <p style="font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.6">
+        Adding someone back brings the leaves they had marked. \u2715 deletes those
+        leaves for good \u2014 the only thing here that can't be undone.</p>`;
+  }
+
   if(!lead) h += `<p style="font-size:12.5px;color:var(--ink-3);margin:12px 0 0">Only ${esc(leadName().split(" ")[0])} can add or remove people.</p>`;
   h += `<div class="act" style="margin-top:16px">
     <button class="btn flat" data-act="share">Share the app</button>
@@ -1344,7 +1733,7 @@ function shareSheetHTML(){
 
 function editMemberSheetHTML(id){
   const m = member(id);
-  if(!m) return `<h3>Not found</h3><div class="act"><button class="btn flat" data-act="manage">Back</button></div>`;
+  if(!m) return `<h3>Not found</h3><div class="act"><button class="btn flat" data-act="back">Back</button></div>`;
   return `<h3>Edit name</h3>
     <div class="sub">${esc(teamDoc.name)}</div>
     <div class="fld"><label>Full name</label>
@@ -1353,12 +1742,12 @@ function editMemberSheetHTML(id){
       Fixing a spelling won't touch their marked leaves.</p>
     <div class="act">
       <button class="btn primary" data-act="em-save" data-id="${id}">Save</button>
-      <button class="btn flat" data-act="manage">Cancel</button></div>`;
+      <button class="btn flat" data-act="back">Cancel</button></div>`;
 }
 
 function restoreSheetHTML(){
   if(!pendingRestore) return `<h3>Nothing to restore</h3>
-    <div class="act"><button class="btn flat" data-act="manage">Back</button></div>`;
+    <div class="act"><button class="btn flat" data-act="back">Back</button></div>`;
   const { plan, fileName } = pendingRestore;
   const doable = plan.filter(x => x.tid && x.lead);
   const dates = doable.reduce((n,x) => n + x.src.people.reduce((a,p) => a + p.dates.length, 0), 0);
@@ -1480,13 +1869,13 @@ function accountSheetHTML(){
   h += `<button class="btn danger" data-act="forget">Leave ${esc(teamDoc.name)} on this phone</button>`;
   h += `<button class="btn flat" data-act="close">Close</button></div>
     <p style="font-size:12px;color:var(--ink-3);margin:12px 0 0;line-height:1.6">
-      Removing a team from this phone only hides it here — the team and its leaves stay for everyone else.</p>`;
+      Removing a team from this phone only hides it here — the team and its leaves stay for everyone else.
+      <br>App version ${APP_VERSION}.</p>`;
   return h;
 }
 
 function openWhoami(){
-  openSheet_ = { type:"whoami" };
-  showSheet(whoamiSheetHTML());
+  navSheet({ type:"whoami" });
 }
 
 let toastTimer = null;
@@ -1510,7 +1899,7 @@ document.addEventListener("click", async e => {
   if(act === "team"){
     const id = el.getAttribute("data-id");
     if(id === tid && phase === "app") return;
-    closeSheet(); openTeam(id); return;
+    openTeam(id); navReset(); return;
   }
   if(act === "mo"){
     const d = +el.getAttribute("data-d");
@@ -1524,22 +1913,22 @@ document.addEventListener("click", async e => {
     await writeLeaves([k], !(meId && daysOf(meId)[k]));
     return;
   }
-  if(act === "range-on"){ rangeMode = true; anchorKey = null; hoverKey = null; render(); return; }
-  if(act === "range-off"){ rangeMode = false; anchorKey = null; hoverKey = null; render(); return; }
+  if(act === "range-on"){ navPush({ screen:"range" }); return; }
+  if(act === "range-off"){ navBack(); return; }
 
-  if(act === "manage"){ openSheet_ = { type:"manage" }; showSheet(manageSheetHTML()); return; }
+  if(act === "manage"){ navSheet({ type:"manage" }); return; }
   if(act === "whoami"){ openWhoami(); return; }
-  if(act === "pick"){ closeSheet(); stopAll(); tid = null; teamDoc = null; phase = "pick"; render(); return; }
-  if(act === "join"){ joinTeam(el.getAttribute("data-id")); return; }
-  if(act === "share"){ openSheet_ = { type:"share" }; showSheet(shareSheetHTML()); return; }
+  if(act === "pick"){ navPush({ screen:"pick" }); return; }
+  if(act === "join"){ joinTeam(el.getAttribute("data-id")); navReset(); return; }
+  if(act === "share"){ navSheet({ type:"share" }); return; }
   if(act === "newteam"){
-    openSheet_ = { type:"newteam" }; showSheet(newTeamSheetHTML());
+    navSheet({ type:"newteam" });
     const i = document.getElementById("ntName"); if(i) i.focus(); return;
   }
   if(act === "nt-create"){
     const n = document.getElementById("ntName"), mm = document.getElementById("ntMe");
     const id = await createTeam(n ? n.value : "", mm ? mm.value : "");
-    if(id){ openSheet_ = { type:"share" }; showSheet(shareSheetHTML()); }
+    if(id) navReplace({ screen:"sheet", s:{ type:"share" } });   // the form is done with
     return;
   }
   if(act === "tm-rename"){
@@ -1550,12 +1939,31 @@ document.addEventListener("click", async e => {
   if(act === "am-add"){
     const i = document.getElementById("amName");
     const added = await addMember(i ? i.value : "");
-    if(added){ if(i){ i.value = ""; i.focus(); } toast("Added"); }
+    if(added){
+      if(i){ i.value = ""; i.focus(); }
+      const box = document.getElementById("amSug"); if(box) box.innerHTML = "";
+      toast(added.restored ? "Added back \u2014 with the leaves they had marked" : "Added");
+      refreshSheet(); render();
+    }
+    return;
+  }
+  if(act === "am-pick"){
+    const pid = el.getAttribute("data-id"), pname = el.getAttribute("data-name");
+    const added = await addMember(pname, { id:pid });
+    if(added){
+      const i = document.getElementById("amName");
+      if(i) i.value = "";
+      const box = document.getElementById("amSug"); if(box) box.innerHTML = "";
+      const first = String(pname).split(" ")[0];
+      toast(added.copied
+        ? esc(first)+" added \u00B7 "+added.copied+" upcoming "+(added.copied===1?"leave":"leaves")+" came across"
+        : esc(first)+" added");
+      refreshSheet(); render();
+    }
     return;
   }
   if(act === "setme"){
-    meId = el.getAttribute("data-id");
-    lsSet("me:"+tid, meId);
+    claimMeId(tid, el.getAttribute("data-id"));
     refreshSheet(); render();
     toast("Hi "+esc(me().name.split(" ")[0])+" — tap dates to mark your leave");
     // Newly identified in this team: your leaves elsewhere never reached it,
@@ -1563,14 +1971,13 @@ document.addEventListener("click", async e => {
     if(myTargets().targets.length > 1){
       await checkMismatch();
       render();
-      if(mismatch){ openSheet_ = { type:"drift" }; showSheet(driftSheetHTML()); }
+      if(mismatch) navSheet({ type:"drift" });
     }
     return;
   }
   if(act === "editm"){
     const id = el.getAttribute("data-id");
-    openSheet_ = { type:"editmember", id };
-    showSheet(editMemberSheetHTML(id));
+    navSheet({ type:"editmember", id });
     const i = document.getElementById("emName");
     if(i){ i.focus(); i.select(); }
     return;
@@ -1578,7 +1985,7 @@ document.addEventListener("click", async e => {
   if(act === "em-save"){
     const i = document.getElementById("emName");
     const ok = await renameMember(el.getAttribute("data-id"), i ? i.value : "");
-    if(ok){ openSheet_ = { type:"manage" }; showSheet(manageSheetHTML()); render(); }
+    if(ok){ navBack(); render(); }
     return;
   }
   if(act === "lead-clear"){
@@ -1593,8 +2000,17 @@ document.addEventListener("click", async e => {
   if(act === "rm"){
     const id = el.getAttribute("data-id"), m = member(id);
     if(!m) return;
-    if(!confirm("Remove "+m.name+" from "+teamDoc.name+"?\n\nTheir marked leaves are deleted too.")) return;
+    if(!confirm("Remove "+m.name+" from "+teamDoc.name+"?\n\nThey come off the calendar, but their marked leaves are kept. Add them back later and the dates come back too.")) return;
     await removeMember(id); refreshSheet(); render(); return;
+  }
+  if(act === "unrm"){
+    await restoreFormer(el.getAttribute("data-id")); refreshSheet(); render(); return;
+  }
+  if(act === "purge"){
+    const id = el.getAttribute("data-id"), f = formerMember(id);
+    if(!f) return;
+    if(!confirm("Delete "+f.name+"'s leaves in "+teamDoc.name+" for good?\n\nThis can't be undone. Adding them back after this starts them with nothing.")) return;
+    await purgeFormer(id); refreshSheet(); render(); return;
   }
   if(act === "copylink"){ await copy(appLink(), "Link copied"); return; }
   if(act === "copymsg"){
@@ -1613,14 +2029,14 @@ document.addEventListener("click", async e => {
   }
   if(act === "export"){ exportJSON(); return; }
   if(act === "export-all"){ await exportAllTeams(); return; }
-  if(act === "drift"){ openSheet_ = { type:"drift" }; showSheet(driftSheetHTML()); return; }
+  if(act === "drift"){ navSheet({ type:"drift" }); return; }
   if(act === "drift-sync"){ await syncMyLeaves(); return; }
   if(act === "recheck"){
     closeSheet();
     toast("Checking your teams…");
     await checkMismatch();
     render();
-    if(mismatch){ openSheet_ = { type:"drift" }; showSheet(driftSheetHTML()); }
+    if(mismatch) navSheet({ type:"drift" });
     else toast("Your teams already match");
     return;
   }
@@ -1640,8 +2056,9 @@ document.addEventListener("click", async e => {
     await applyRestoreOne(i, "merge", true);
     return;
   }
-  if(act === "rs-cancel"){ pendingRestore = null; openSheet_ = { type:"manage" }; showSheet(manageSheetHTML()); return; }
-  if(act === "close"){ closeSheet(); render(); return; }
+  if(act === "rs-cancel"){ pendingRestore = null; navBack(); return; }
+  if(act === "close"){ closeSheet(); return; }
+  if(act === "back"){ navBack(); return; }
 });
 
 /* ── Calendar gestures ─────────────────────────────────────────
@@ -1693,8 +2110,7 @@ document.addEventListener("click", async e => {
     clearHold();
     holdTimer = setTimeout(() => {
       holdTimer = null; handled = true;
-      openSheet_ = { type:"day", k };
-      showSheet(daySheetHTML(k));
+      navSheet({ type:"day", k });
     }, HOLD_MS);
   }, { passive:true });
 
@@ -1735,7 +2151,7 @@ document.addEventListener("click", async e => {
     reset();
     if(wasHandled || scrolled) return;
     if(startKey < todayKey()){
-      if(iAmLead()){ openSheet_ = { type:"day", k:startKey }; showSheet(daySheetHTML(startKey)); }
+      if(iAmLead()) navSheet({ type:"day", k:startKey });
       else toast("Past dates are fixed — ask your team lead");
       return;
     }
@@ -1746,11 +2162,14 @@ document.addEventListener("click", async e => {
   document.addEventListener("pointercancel", () => { reset(); });
 })();
 
+document.addEventListener("input", e => {
+  if(!e.target || e.target.id !== "amName") return;
+  const box = document.getElementById("amSug");
+  if(box) box.innerHTML = suggestHTML(e.target.value);
+});
+
 document.addEventListener("keydown", e => {
-  if(e.key === "Escape"){
-    if(rangeMode){ rangeMode = false; anchorKey = null; hoverKey = null; render(); }
-    closeSheet();
-  }
+  if(e.key === "Escape"){ navBack(); return; }
   if(e.key !== "Enter") return;
   const id = e.target && e.target.id;
   if(id === "amName") document.querySelector('[data-act="am-add"]')?.click();
@@ -1761,7 +2180,7 @@ document.addEventListener("keydown", e => {
 
 document.getElementById("meBtn").addEventListener("click", () => {
   if(phase !== "app"){ return; }
-  openSheet_ = { type:"account" }; showSheet(accountSheetHTML());
+  navSheet({ type:"account" });
 });
 window.addEventListener("online",  () => { net.online = true;  renderStatus(); });
 window.addEventListener("offline", () => { net.online = false; renderStatus(); });
@@ -1770,6 +2189,7 @@ window.addEventListener("offline", () => { net.online = false; renderStatus(); }
    ⑩  Boot
    ═══════════════════════════════════════════════════════════ */
 loadKnown();
+try { history.replaceState({ tlStack:[] }, ""); } catch(e){}
 if(!CONFIGURED){
   phase = "pick"; render();
 } else {
