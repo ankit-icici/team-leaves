@@ -1,5 +1,7 @@
 # Team Leaves — setup
 
+> **History only.** One-time setup record from August 2026; parts are out of date. For how the app works today, read `HANDOFF.md`.
+
 About 20 minutes, one time. No credit card, no server, no cost.
 
 You need to do all of this **once, on a laptop**. Everyone else just opens a link.

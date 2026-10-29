@@ -1,5 +1,7 @@
 # Team Leaves v4 — one link, teams chosen in the app
 
+> **History only.** One-time setup record from August 2026; parts are out of date. For how the app works today, read `HANDOFF.md`.
+
 Same Firebase project. One link for the whole department. Nobody signs in, nobody types a code.
 
 Two console jobs and a file swap. About 10 minutes.

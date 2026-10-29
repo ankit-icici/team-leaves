@@ -1,45 +1,49 @@
-# Team Leaves — handoff
+# Team Leaves: handoff
 
-Paste this into a new Claude session (or just point Claude at this file's raw URL) to
-continue building the app with no explanation needed.
+Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
+first, then this file, then `DECISIONS.md`. Last brought up to date: October 29, 2026,
+for app version **v21**.
 
 ---
 
-I have a working web app called "Team Leaves" that I need you to continue building. Read
-everything below before responding — it contains all context, so don't ask me to explain
-the project.
+## 1. What it is
 
-## WHAT IT IS
-
-A leave tracker for my team at ICICI Bank (Alliances / Brand Partnerships). ~100 people
-across several subteams use it on their phones. Each person marks their own upcoming
-leaves; everyone sees who's out. It is NOT an approval system — just visibility.
+A leave tracker for Ankit's department at ICICI Bank (Alliances / Brand Partnerships),
+used on phones. Each person marks their own upcoming leaves and everyone in the team
+sees who's out. It is **not** an approval system, only visibility.
 
 - Live app: https://ankit-icici.github.io/team-leaves/
-- Repo (public): https://github.com/ankit-icici/team-leaves
-- Current code: https://raw.githubusercontent.com/ankit-icici/team-leaves/main/index.html
-  and https://raw.githubusercontent.com/ankit-icici/team-leaves/main/sw.js
+- Repo (public): https://github.com/ankit-icici/team-leaves (branch `main`)
+- Owner: Ankit Garg. Official (ICICI Bank) work.
+- In use as of October 29, 2026: 12 teams, 69 names across all rosters (one person on
+  two teams counts twice). The biggest team has 33 people.
 
-FIRST ACTION: fetch those two raw URLs to read the current code. If you can't fetch,
-tell me and I'll paste the file contents in.
+## 2. Files
 
-## HOW I WORK — IMPORTANT
+| File | What it is |
+|---|---|
+| `index.html` | The whole app: inline CSS plus one ES module. About 2,200 lines. |
+| `sw.js` | Service worker: caches the app shell so it opens offline. Holds the cache version. |
+| `manifest.json` | Makes it installable (name, icons, colours). |
+| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons. |
+| `firestore.rules` | Database security rules. A copy only: the live rules are whatever was last published in the Firebase console. |
+| `SETUP.md`, `SETUP-V4.md` | One-time setup records from August 2026 (first setup, then the move to one link for everyone). History only: parts are out of date. |
+| `CLAUDE.md` | Read-first rules for any session. |
+| `HANDOFF.md` | This file. |
+| `DECISIONS.md` | Decision log, newest first. |
 
-I don't edit code, and I don't keep files on my laptop. So:
+## 3. How it is built
 
-1. Make changes yourself and hand me back COMPLETE `index.html` and `sw.js` files,
-   ready to upload with zero editing.
-2. Always bake my Firebase config into `index.html` (values below) — never leave
-   `PASTE_` placeholders.
-3. Always bump the cache version in `sw.js` (currently `team-leaves-v14` → v15, v16…),
-   or phones serve a stale cached copy and I'll think the change didn't work.
-4. I upload files through the GitHub web UI and wait ~2 min for Pages to rebuild.
-5. Test your logic before handing files over. `node --check` the extracted script, and
-   run the pure functions headlessly by stripping the firebase imports and the boot
-   block and stubbing `document` / `localStorage` / `location`. This has caught real
-   bugs — do it.
+- Plain HTML and JavaScript, no build step. Firebase JS SDK **10.12.2** loaded from
+  `www.gstatic.com`.
+- Hosting: GitHub Pages from `main`, root folder. A push goes live in about 2 minutes.
+- Database: Google Firestore, location asia-south1 (Mumbai), free Spark plan, no card on
+  file. Firestore runs with `persistentLocalCache` so the app works offline.
+- Sign-in: Firebase **anonymous** auth, invisible to users. It only stops scripts that
+  never loaded the app from reading the database.
 
-## FIREBASE CONFIG (public by design, safe in a public file)
+Firebase config (public by design; it identifies the project and authorises nothing; the
+rules do the protecting). It is already in `index.html`:
 
 ```
 apiKey:            "AIzaSyAuD0vD6OoXH7fK-zhyDsSNvwU2jb_GaRU"
@@ -50,98 +54,160 @@ messagingSenderId: "241879513784"
 appId:             "1:241879513784:web:013ceeecfd42d469aa524d"
 ```
 
-Firestore location asia-south1. Anonymous auth is ON (invisible to users — nobody signs
-in). Free Spark plan, no card on file.
+## 4. Data
 
-## ARCHITECTURE
-
-Single self-contained `index.html` (inline CSS + one ES module), plus `sw.js`,
-`manifest.json`, and three PNG icons. Firebase JS SDK 10.12.2 from the gstatic CDN.
-Firestore with `persistentLocalCache` so it works offline. Installable PWA.
-
-Firestore is the source of truth; phones hold only a cache. This is deliberate — an
-earlier app of mine kept data on the device and kept losing it (iOS Safari clears
-script storage after ~7 days unused). Never move data ownership back to the device.
-
-Data model:
+Firestore is the source of truth; phones hold only a cache. Never move data ownership
+back to the device (an earlier app lost data that way: iOS Safari clears script storage
+after about 7 days unused).
 
 ```
-teams/{teamId}               → { name, leadId, members:[{id,name,color}], createdAt }
-teams/{teamId}/years/{YYYY}  → { days: { memberId: { "2026-11-05": "full" } } }
+teams/{teamId}              → { name, leadId, createdAt,
+                                members:       [{id, name, color}],
+                                formerMembers: [{id, name, color, removedAt}] }   // max 200
+teams/{teamId}/years/{YYYY} → { days: { memberId: { "2026-11-05": "full" } } }
 ```
 
-One year document per team holds everyone's dates. Writes use field-level merges
-(`setDoc(..., {merge:true})` with `deleteField()` for removals) so two people editing
-different dates never clobber each other. Roster changes use `runTransaction`.
-Never switch to one-document-per-person — read costs would blow the free tier.
+- One year document per team holds everyone's dates. Never switch to one document per
+  person: reads would blow the free tier.
+- Date writes use field-level merges (`setDoc(..., {merge:true})`, `deleteField()` to
+  remove), so two people editing different dates never overwrite each other.
+- Roster changes use `runTransaction`, so they need a connection. Marking leaves works
+  fully offline.
+- A member id is minted once per person and **reused** when that person is added to
+  another team from the suggestions. The id is effectively the person's identity across
+  teams.
+- Any legacy `"half"` value counts as a normal leave.
 
-Device-local (localStorage, preferences only — never data):
+Stored on the phone (`localStorage`, preferences only, never data):
 
-```
-tl:known     → JSON [{id,name}] of teams joined on this phone
-tl:me:<tid>  → which member id I am in that team
-tl:lastTeam  → team to reopen
-```
+| Key | Meaning |
+|---|---|
+| `tl:known` | Teams joined on this phone, `[{id, name}]` |
+| `tl:me:<teamId>` | Which member this phone is in that team |
+| `tl:meId` | The last member id this phone claimed (used to recognise itself in other teams) |
+| `tl:lastTeam` | Team to reopen |
+| `tl:left` | Teams deliberately left on this phone, so they aren't re-adopted automatically |
 
-## SECURITY MODEL — READ THIS BEFORE "IMPROVING" IT
+## 5. Security model (a deliberate choice: read before "improving" it)
 
-There is NO sign-in, by my explicit decision after discussing alternatives at length.
-Rules allow any anonymous client to `get` AND `list` teams. Consequences I accepted
-knowingly:
+There is **no sign-in**, by Ankit's decision. The rules let any anonymous client `get`
+and `list` teams, so:
 
-- Every team name is visible to anyone who opens the app.
-- Any team's leaves are readable via browser dev tools by someone who goes looking.
-- "Only the lead manages the roster" and "you only edit your own leaves" are enforced
-  in the UI only, not on the server.
+- every team name is visible to anyone who opens the app;
+- any team's leaves can be read through browser developer tools by someone who looks;
+- "only the lead manages the roster" and "you only edit your own leaves" are enforced in
+  the app, not on the server. The server forbids only deletes.
 
-The app hides other teams; it does not lock them. That is intentional for one
-department. DO NOT add sign-in, team codes, passwords, or per-team links unless I
-explicitly ask. If a change I request would need real enforcement, say so once and let
-me decide — don't build it unasked.
+The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
+passwords or per-team links unless Ankit asks. If a request would need real enforcement,
+say so once and let him decide.
 
-## DELIBERATE DESIGN DECISIONS — DON'T UNDO THESE
+## 6. What the app does today (v21)
 
-- No half-day option. Removed on request. Any legacy `"half"` value in the database is
-  treated as a normal leave.
-- Tapping a date toggles it immediately. No confirmation dialog.
-- Press-and-hold a date shows a read-only "who's out" list (a cell only fits ~2 initials).
-- Drag range-select sits behind a "Select range" button rather than being always-on,
-  because a drag-anywhere calendar swallows the vertical swipe used to scroll the page.
-  In that mode: drag first→last day, or tap first then tap last. Whether the range marks
-  or unmarks is set by the first day touched.
-- Marking a leave mirrors to EVERY team the person has joined and picked a name in
-  (matched by member id per team, not by name). Teams where they haven't picked a name
-  are skipped with a nudge.
-- Two tabs: "Calendar" and "List". List shows upcoming leaves as text rows with weekdays
-  ("Thu 20 – Fri 21 Aug"), a TODAY badge, no day counts, not month-bound. It deliberately
-  contains no mini-calendar.
-- Calendar grid uses `minmax(0,1fr)` columns — plain `1fr` let avatar content inflate a
-  column and push day 7 off screen. Cells show 2 initials, or 1 initial + "+N".
-- Status line tracks cache state PER listener and only warns after 7 seconds of stale
-  data. A single shared flag caused false "Reconnecting" warnings, because an empty
-  future-year document always reports as cache-served.
-- Lead can: rename team, add members, rename members (✎), remove members (✕),
-  transfer lead (★).
-- Backup: per-team (Manage team) and all-teams (tap your name → Back up all my teams).
-  Files record `teamId` so restore survives team renames. Output is human-readable:
-  dates grouped under each person's name.
-- Restore (Manage team → Restore from a backup file): reads the whole file, checks lead
-  status per team, offers "Add back anything missing" (merge) or "Replace all leaves"
-  (exact), plus "Only this" per team and "Into <current team>" for teams that no longer
-  exist here. Never removes anyone from a roster.
+**Getting in**
+- One link for everyone. First open shows "Which team are you in?" with every team;
+  the person taps theirs, then taps their own name once. The phone remembers.
+- "Create a team" makes the creator its lead.
+- If a lead adds someone who already has an identity on this phone (same member id),
+  the phone picks up the new team by itself and shows a toast.
+- Team chips at the top switch between the teams joined on this phone.
 
-## KNOWN GAPS / THINGS I MIGHT ASK FOR
+**Marking leave**
+- Calendar tab: tap a future date to mark or unmark it, instantly, no confirmation.
+- Press and hold a date: who's out that day (a cell fits only two initials, or one
+  initial plus "+N").
+- "Select range" button: drag from first to last day, or tap first then tap last. The
+  first day decides whether the range is marked or unmarked.
+- Past dates can't be changed by members.
+- A leave is written to **every** team where this phone is recognised (matched by member
+  id, not by name). Teams joined without picking a name are skipped, with a nudge.
+- If the person's dates differ between their teams, a "Your leaves don't match" card
+  offers "Review and fix", which makes every team match the one on screen. It's also in
+  the account menu as "Check my leaves match across teams".
 
-- Removing a member DELETES their leaves. This is the one destructive action. A safer
-  version would keep the dates dormant so re-adding restores them.
-- No "N changes waiting to sync" banner. The only genuine data-loss window is a leave
-  marked offline on a device whose storage is cleared before it syncs.
-- Ordinary members can't fix their own name — lead only.
-- No CSV/Excel export.
-- An accidental drag in Select-range mode starting on an existing leave can clear a lot
-  of days at once.
+**Seeing who's out**
+- Header: "N people out today" with first names, or "Everyone's in today."
+- Person chips filter the calendar to one person.
+- List tab: each person's upcoming leaves as text rows with weekdays
+  ("Thu 20 – Fri 21 Aug"), a TODAY badge, no day counts, no mini-calendar.
+- Status line at the bottom: Synced / Saving… / Offline / Reconnecting / errors.
 
-## TONE
+**Lead only (Manage team)**
+- Rename the team; add people (type-ahead suggests people already on other teams);
+  rename people (✎); hand over the lead (★); remove people (✕).
+- Removing someone is **reversible**: they move to "Removed · leaves kept" and their
+  dates stay. "Add back" restores them with their dates. A second ✕ there deletes their
+  dates for good: the only irreversible action in the app.
+- Clear anyone's leave on a date (including past dates), in this team only.
 
-Be direct. Tell me when an idea has a downside or when I've asked for two things that
-conflict. Flag risks once, clearly, then do what I decide. Don't pad responses.
+**Backup and restore**
+- "Download a backup" (one team) and "Back up all my teams" (account menu). Files are
+  readable JSON: dates grouped under each person's name, with `teamId` so a restore
+  survives renames.
+- "Restore from a backup file": matches teams by id (then by name), restores only teams
+  this phone leads. Options: "Add back anything missing" (merge), "Replace all leaves"
+  (exact; keeps removed people's dates), "Only this", and "Into <current team>" for
+  teams no longer here. Never removes anyone from a roster.
+
+**Other**
+- Share sheet: copy the link, or copy a ready WhatsApp message.
+- "Leave <team> on this phone" hides it here only.
+- Installable PWA; works offline. Every sheet and mode is a history entry, so Android
+  Back closes one layer at a time; each sheet also has its own ← / ✕ for iPhone.
+- The version (e.g. "v21") shows at the bottom of the screen and in the account menu.
+
+## 7. Making a change and releasing it
+
+Claude makes the change, tests it, pushes and checks it live. Ankit doesn't upload files.
+
+1. Pull `main` first and confirm it matches what's live (compare `APP_VERSION` in the
+   live page with the repo).
+2. Make the change in `index.html` (and `sw.js` if needed).
+3. **Bump the version in two places, together:** `APP_VERSION` in `index.html` and
+   `CACHE` in `sw.js` (`v21` → `v22`, and so on). Otherwise phones may show the old copy.
+4. Test before pushing:
+   - `node --check` on the script extracted from `index.html`;
+   - run the pure functions headlessly: strip the Firebase imports and the boot block,
+     stub `document`, `localStorage` and `location`. This has caught real bugs;
+   - click through the real flows in a browser at phone size, using a throwaway test
+     team, never a real team's data.
+5. Commit with a clear message and push to `main`.
+6. Wait about 2 minutes, then confirm the live page shows the new `APP_VERSION` and
+   `sw.js` the new `CACHE`. Tell Ankit how to see it (close and reopen the app).
+7. Update this file and `DECISIONS.md` in the same session.
+
+If `firestore.rules` changes, the file in the repo does nothing by itself: the rules must
+be published in the Firebase console (Firestore Database → Rules → Publish). That needs
+Ankit's login; give him numbered click steps.
+
+## 8. Open items
+
+1. **Firebase ownership:** which Google account owns project `team-leaves-270f6`, and
+   whether a second owner was added (the setup guide recommended it), is not recorded.
+   Ankit to confirm; then record it here.
+2. **Not on ICICI Bank brand:** the app uses its own orange (#F37E20 / #E06A0E), maroon
+   (#8A1538) and the phone's system font, not the brand orange #E3530F, maroon #94292E
+   or Mulish. Ankit to decide whether to rebrand.
+3. **Clutter in the team list:** three near-identical teams that differ only by an
+   apostrophe or the word "Team", plus a few one-person teams that look like tests. The
+   app can't delete teams (the rules forbid it); it has to be done in the Firebase
+   console, after checking with each team's lead.
+4. No Excel / CSV export.
+5. Ordinary members can't fix their own name; only the lead can.
+6. No "N changes waiting to sync" banner. The one real data-loss window: a leave marked
+   offline on a phone whose storage is cleared before it syncs.
+7. In Select-range mode, an accidental drag that starts on an existing leave can clear
+   many days at once.
+8. Some confirmations use the browser's plain `confirm()` box rather than an in-app sheet.
+9. Office network: Zscaler on bank laptops (and some managed phones) may block
+   `googleapis.com` / `firebaseio.com`. Not recorded as tested.
+
+## 9. History
+
+| Date | Version | What changed |
+|---|---|---|
+| Sep 9, 2026 | v21 | Reversible member removal, back navigation, people shared across teams (same member id, type-ahead, auto-adopt), page fetched fresh when online, version shown on screen |
+| Aug 27, 2026 | v16 | "Leaves don't match across teams" check and fix; lead can clear anyone's leave |
+| Aug 19, 2026 | v14 | First handoff written |
+| Aug 18, 2026 | v4 → v14 | One link for everyone with a team picker; many UI rounds the same day |
+| Aug 17, 2026 | v1 | First version |
