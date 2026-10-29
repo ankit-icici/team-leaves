@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#E06A0E">
+<meta name="theme-color" content="#E3530F">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Team Leaves">
@@ -11,14 +11,21 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>Team Leaves</title>
+<link rel="preload" href="mulish.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* Mulish, the ICICI Bank brand typeface (SIL Open Font License, see mulish-OFL.txt),
+     cut down to Latin characters from the brand master so the app stays small. */
+  @font-face{font-family:"Mulish";src:url("mulish.woff2") format("woff2");
+             font-weight:200 1000;font-style:normal;font-display:swap}
   :root{
-    --o-500:#F37E20; --o-600:#E06A0E; --o-700:#B8510A;
-    --o-100:#FFE7D2; --o-050:#FFF6EE;
-    --maroon:#8A1538;
+    /* ICICI Bank brand orange #E3530F and maroon #94292E. --o-700 is a darker
+       orange for small text on white, where the brand orange is too light to read. */
+    --o-500:#E3530F; --o-600:#C9480C; --o-700:#B23F0A;
+    --o-100:#FCE0D2; --o-050:#FEF3EC;
+    --maroon:#94292E;
     --ink:#2A1C14; --ink-2:#7A6455; --ink-3:#A79285;
     --line:#EFE1D5; --paper:#FFFBF7; --white:#FFFFFF; --green:#16A34A;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --sans:"Mulish",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
     --r:16px; --shadow:0 1px 2px rgba(42,28,20,.05), 0 8px 24px rgba(42,28,20,.06);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -29,7 +36,7 @@
   :focus-visible{outline:2.5px solid var(--o-600);outline-offset:2px;border-radius:6px}
   .wrap{max-width:560px;margin:0 auto;padding:0 0 130px;overflow-x:hidden}
 
-  .top{position:sticky;top:0;z-index:30;background:linear-gradient(118deg,var(--o-600) 0%,var(--o-500) 52%,#F79A46 100%);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 18px 18px;border-radius:0 0 22px 22px;box-shadow:0 6px 22px rgba(184,81,10,.22)}
+  .top{position:sticky;top:0;z-index:30;background:var(--o-500);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 18px 18px;border-radius:0 0 22px 22px;box-shadow:0 6px 22px rgba(227,83,15,.22)}
   .top-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .brand{display:flex;flex-direction:column;min-width:0}
   .brand h1{margin:0;font-size:19px;font-weight:750;letter-spacing:-.35px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -184,10 +191,10 @@
   .or{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:11px;font-weight:750;letter-spacing:1px;margin:16px 0}
   .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
 
-  .drift{padding:14px 16px;display:flex;flex-direction:column;gap:6px;border-color:#FBE3B0;background:#FFFCF5}
-  .drift b{font-size:14px;font-weight:750;color:#8A5A00}
+  .drift{padding:14px 16px;display:flex;flex-direction:column;gap:6px;border-color:var(--o-100);background:var(--o-050)}
+  .drift b{font-size:14px;font-weight:750;color:var(--maroon)}
   .drift span{font-size:12.5px;color:var(--ink-2);line-height:1.55}
-  .drift button{align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:750;color:#fff;background:#B8860B;padding:8px 14px;border-radius:999px}
+  .drift button{align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:750;color:#fff;background:var(--maroon);padding:8px 14px;border-radius:999px}
   .hint{padding:0 20px;font-size:12.5px;color:var(--ink-3);text-align:center;line-height:1.6}
   .skel{padding:70px 0;text-align:center;color:var(--ink-3);font-size:13.5px;font-weight:600}
   .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:90;background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:650;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;box-shadow:0 8px 24px rgba(42,28,20,.28);max-width:88vw;text-align:center}
@@ -297,9 +304,12 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v22";
-const COLORS = ["#F37E20","#8A1538","#B45309","#0F766E","#9A3412","#1D4ED8",
-                "#166534","#BE185D","#6D28D9","#A16207","#7C2D12","#0E7490"];
+const APP_VERSION = "v23";
+const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
+                "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
+/* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
+   when drawn, so nobody's saved record has to be rewritten. */
+const OLD_COLORS = { "#F37E20":"#E3530F", "#8A1538":"#94292E", "#A16207":"#193D6C" };
 const DOW = ["M","T","W","T","F","S","S"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -351,8 +361,9 @@ function shortWhen(iso){
 function me(){ return member(meId); }
 function iAmLead(){ return !!(teamDoc && meId && teamDoc.leadId === meId); }
 function leadName(){ const m = member(teamDoc ? teamDoc.leadId : null); return m ? m.name : "nobody yet"; }
+function personColor(m){ const c = (m && m.color) || COLORS[0]; return OLD_COLORS[c] || c; }
 function avatar(m, cls){
-  return `<span class="av ${cls||""}" style="background:${m.color||"#F37E20"}">${esc(initials(m.name))}</span>`;
+  return `<span class="av ${cls||""}" style="background:${personColor(m)}">${esc(initials(m.name))}</span>`;
 }
 function daysOf(id){ return leaves[id] || {}; }
 function outOn(k){
@@ -493,18 +504,29 @@ function watchAllTeams(){
   if(subs.all) return;
   subs.all = onSnapshot(collection(db, "teams"),
     snap => {
-      allTeams = snap.docs.map(d => {
+      /* A team marked hidden (duplicates, tests, people who have left) is left out
+         everywhere, as if it didn't exist. Its data stays in the database, so
+         clearing the flag in the Firebase console brings it back. */
+      allTeams = snap.docs.filter(d => !(d.data() || {}).hidden).map(d => {
         const v = d.data() || {};
         const mem = Array.isArray(v.members) ? v.members : [];
         return { id:d.id, name:v.name || "Untitled team", members:mem, size:mem.length };
       }).sort((a,b) => String(a.name).localeCompare(String(b.name)));
-      // keep locally-stored names fresh if a lead renames a team
+      // a phone that had joined a team since hidden drops it (not added to "left",
+      // so it comes back on its own if the team is ever un-hidden)
+      const gone = new Set(snap.docs.filter(d => (d.data() || {}).hidden).map(d => d.id));
       let changed = false;
+      if(known.some(k => gone.has(k.id))){ known = known.filter(k => !gone.has(k.id)); changed = true; }
       for(const k of known){
         const hit = allTeams.find(t => t.id === k.id);
         if(hit && hit.name !== k.name){ k.name = hit.name; changed = true; }
       }
       if(changed) saveKnown();
+      if(tid && gone.has(tid)){
+        stopAll(); tid = null; teamDoc = null;
+        if(known.length){ openTeam(known[0].id); return; }
+        phase = "pick";
+      }
       adoptMyTeams();
       if(phase === "pick") render();
     },
@@ -514,6 +536,7 @@ function watchAllTeams(){
 
 function stopAll(){
   cacheState = {};
+  pendingSrc = {}; updatePending();
   net.cached = false; net.stale = false;
   if(staleTimer){ clearTimeout(staleTimer); staleTimer = null; }
   if(subs.team){ subs.team(); subs.team = null; }
@@ -532,6 +555,7 @@ function openTeam(id){
   subs.team = onSnapshot(doc(db, "teams", id),
     snap => {
       if(tid !== id) return;
+      if(snap.exists() && snap.data().hidden) return;   // the teams listener moves us off it
       if(!snap.exists()){
         net.error = "missing";
         phase = "pick";
@@ -568,17 +592,53 @@ function watchYear(y){
   y = String(y);
   if(subs.years[y]) return;
   const forTeam = tid;
-  subs.years[y] = onSnapshot(doc(db, "teams", forTeam, "years", y),
+  // metadata changes too: that is the only event that says a pending write has
+  // reached the server, which the sync warning needs to clear itself
+  subs.years[y] = onSnapshot(doc(db, "teams", forTeam, "years", y), { includeMetadataChanges:true },
     snap => {
       if(tid !== forTeam) return;
       yearData[y] = (snap.exists() && snap.data().days) ? snap.data().days : {};
       // an empty future year is normal and must not look like a connection fault
       setCached("year:"+y, snap.metadata.fromCache && snap.exists());
-      net.pending = snap.metadata.hasPendingWrites ? 1 : 0;
+      setPending("year:"+y, snap.metadata.hasPendingWrites);
       rebuild(); render();
     },
     err => { net.error = err.code || "unavailable"; render(); }
   );
+}
+
+/* ── Changes not yet on the server ─────────────────────────────
+   Marked leaves are saved on the phone at once and sent when there's signal.
+   Until they arrive, clearing the app's storage would lose them, so the app
+   says so. Two sources: writes made in this session (counted exactly), and any
+   year document the database reports as still holding unsent changes (which
+   also covers changes made before the app was last closed). */
+let unsynced = 0;          // leave days written this session, not yet confirmed
+let pendingSrc = {};       // per listener: does it report unsent changes?
+let pendingSince = 0;
+function setPending(src, on){
+  pendingSrc[src] = !!on;
+  updatePending();
+}
+function updatePending(){
+  const was = net.pending;
+  net.pending = unsynced > 0 || Object.keys(pendingSrc).some(k => pendingSrc[k]);
+  if(net.pending && !was){
+    pendingSince = Date.now();
+    setTimeout(() => { if(net.pending) render(); }, 6100);   // bring up the warning if it lingers
+  }
+  if(!net.pending) pendingSince = 0;
+}
+/* Shown once changes have waited a few seconds, or straight away offline. */
+function showSyncWarning(){
+  return net.pending && (!net.online || (pendingSince && Date.now() - pendingSince > 6000));
+}
+function syncWarningHTML(){
+  if(!showSyncWarning()) return "";
+  const what = unsynced > 0 ? unsynced+(unsynced === 1 ? " change" : " changes") : "Your latest changes";
+  return `<div class="card drift" role="status"><b>${what} waiting to sync</b>
+    <span>Saved on this phone. ${net.online ? "Sending now" : "They'll reach your team when you're back online"}.
+    Until then, don't clear this app's data or uninstall it.</span></div>`;
 }
 
 /* Each listener reports separately whether its data came from the local cache.
@@ -695,8 +755,11 @@ async function addMember(name, opts){
   } catch(e){ toast("Adding people needs internet."); return null; }
 }
 
+/* A lead can fix anyone's name in their own team. Anyone can fix their own,
+   and that follows them to every team they're on (same member id). */
 async function renameMember(id, name){
-  if(!iAmLead()){ toast("Only the team lead can edit names"); return false; }
+  const self = !!meId && id === meId;
+  if(!iAmLead() && !self){ toast("Only the team lead can edit other people's names"); return false; }
   name = String(name||"").trim().replace(/\s+/g," ");
   if(!name){ toast("Enter a name"); return false; }
   const existing = member(id);
@@ -705,16 +768,21 @@ async function renameMember(id, name){
   if(roster().some(m => m.id !== id && m.name.toLowerCase() === name.toLowerCase())){
     toast("Someone else on this team already has that name"); return false;
   }
+  const where = [tid];
+  if(self) for(const t of allTeams)
+    if(t.id !== tid && (t.members || []).some(m => m.id === id)) where.push(t.id);
   try {
-    await runTransaction(db, async tx => {
-      const ref = doc(db, "teams", tid);
-      const snap = await tx.get(ref);
-      if(!snap.exists()) throw new Error("gone");
-      const cur = Array.isArray(snap.data().members) ? snap.data().members : [];
-      tx.set(ref, { members: cur.map(m => m.id === id ? Object.assign({}, m, { name }) : m) },
-             { merge:true });
-    });
-    toast("Name updated");
+    for(const t of where){
+      await runTransaction(db, async tx => {
+        const ref = doc(db, "teams", t);
+        const snap = await tx.get(ref);
+        if(!snap.exists()) return;
+        const cur = Array.isArray(snap.data().members) ? snap.data().members : [];
+        tx.set(ref, { members: cur.map(m => m.id === id ? Object.assign({}, m, { name }) : m) },
+               { merge:true });
+      });
+    }
+    toast(where.length > 1 ? "Name updated in your "+where.length+" teams" : "Name updated");
     return true;
   } catch(e){ toast("Editing names needs internet."); return false; }
 }
@@ -813,7 +881,10 @@ async function renameTeam(name){
 async function makeLead(id){
   const m = member(id);
   if(!m) return;
-  if(!confirm("Make "+m.name+" the lead of "+teamDoc.name+"?\n\nYou'll stay on the team but the add/remove controls move to them.")) return;
+  if(!(await askConfirm({ title:"Make "+m.name+" the lead?",
+        body:"You'll stay on "+teamDoc.name+", but adding and removing people moves to them.",
+        ok:"Make "+m.name.split(" ")[0]+" the lead" }))) return;
+  navBack();
   try {
     await setDoc(doc(db, "teams", tid), { leadId:id }, { merge:true });
     toast(m.name.split(" ")[0]+" is now the team lead");
@@ -966,22 +1037,32 @@ async function writeLeaves(keys, on){
   }
   rebuild(); render();
 
-  try {
-    for(const tg of targets){
-      for(const y of Object.keys(byYear)){
-        const days = {};
-        for(const k of byYear[y]) days[k] = on ? "full" : deleteField();
-        await setDoc(doc(db, "teams", tg.tid, "years", y),
-          { days: { [tg.mid]: days } }, { merge:true });
-      }
+  /* Every team's write is handed to the database at once. Waiting for each to
+     reach the server before starting the next meant that, offline, only the
+     first team's change was even queued — close the app and the rest were lost. */
+  const writes = [];
+  for(const tg of targets){
+    for(const y of Object.keys(byYear)){
+      const days = {};
+      for(const k of byYear[y]) days[k] = on ? "full" : deleteField();
+      writes.push(setDoc(doc(db, "teams", tg.tid, "years", y),
+        { days: { [tg.mid]: days } }, { merge:true }));
     }
-    const n = keys.length;
-    const what = n === 1 ? "Leave" : n+" days";
-    const where = targets.length > 1 ? " in all "+targets.length+" of your teams" : "";
-    toast(what + (on ? " marked" : " removed") + where);
-    if(missing.length)
-      setTimeout(() => toast("Pick your name in "+esc(missing[0])+" to mirror leaves there"), 2700);
-  } catch(e){ toast("Couldn't save — check your connection"); }
+  }
+  const n = keys.length;
+  unsynced += n; updatePending(); renderStatus();
+  const sent = Promise.all(writes);
+  sent.then(() => {}, () => {}).then(() => { unsynced = Math.max(0, unsynced - n); updatePending(); render(); });
+
+  const what = n === 1 ? "Leave" : n+" days";
+  const where = targets.length > 1 ? " in all "+targets.length+" of your teams" : "";
+  const slow = new Promise(r => setTimeout(() => r("slow"), 4000));
+  const first = navigator.onLine ? await Promise.race([sent.then(() => "ok", () => "fail"), slow]) : "offline";
+  if(first === "fail"){ toast("Couldn't save — check your connection"); return; }
+  if(first === "ok") toast(what + (on ? " marked" : " removed") + where);
+  else toast(what + (on ? " marked" : " removed") + " \u00B7 saved on this phone, will sync when you're online");
+  if(missing.length)
+    setTimeout(() => toast("Pick your name in "+esc(missing[0])+" to mirror leaves there"), 2700);
 }
 
 function download(name, text, mime){
@@ -1236,6 +1317,190 @@ function exportJSON(){
   toast("Backup downloaded");
 }
 
+/* ── Excel download ─────────────────────────────────────────────
+   A real .xlsx built here, with no library: a handful of XML files in an
+   uncompressed zip. Two sheets — every stretch of leave, and a per-person
+   summary — with real date cells, so the file sorts and filters in Excel. */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for(let n = 0; n < 256; n++){
+    let c = n;
+    for(let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for(let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function zipStore(files){            // files: [{name, text}]  →  Uint8Array
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  const u16 = v => [v & 255, (v >>> 8) & 255];
+  const u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  for(const f of files){
+    const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+    const common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21),
+                    ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)];
+    const local = new Uint8Array([...u32(0x04034b50), ...common]);
+    parts.push(local, name, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...common,
+                 ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), name);
+    offset += local.length + name.length + data.length;
+  }
+  const cdSize = central.reduce((n,p) => n + p.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length),
+                ...u16(files.length), ...u32(cdSize), ...u32(offset), ...u16(0)]);
+  const all = parts.concat(central, [end]);
+  const out = new Uint8Array(all.reduce((n,p) => n + p.length, 0));
+  let at = 0; for(const p of all){ out.set(p, at); at += p.length; }
+  return out;
+}
+function xmlEsc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function excelDate(k){ const p = k.split("-"); return Date.UTC(+p[0], +p[1]-1, +p[2]) / 86400000 + 25569; }
+function colName(i){ return String.fromCharCode(65 + i); }
+
+/* rows: arrays of {v, s} where s is a style id from xlsxStyles() and a number
+   v is written as a number (dates are numbers with a date style). */
+function sheetXML(title, sub, head, rows, widths){
+  const HEAD_ROW = 4, last = HEAD_ROW + rows.length, lastCol = colName(head.length - 1);
+  const cell = (c, r, x) => typeof x.v === "number"
+    ? `<c r="${c}${r}" s="${x.s}"><v>${x.v}</v></c>`
+    : `<c r="${c}${r}" s="${x.s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(x.v)}</t></is></c>`;
+  let d = `<row r="1" ht="24" customHeight="1">${cell("A",1,{v:title,s:5})}</row>`
+        + `<row r="2">${cell("A",2,{v:sub,s:6})}</row>`
+        + `<row r="${HEAD_ROW}" ht="22" customHeight="1">${head.map((h,i) => cell(colName(i), HEAD_ROW, {v:h, s:1})).join("")}</row>`;
+  rows.forEach((r, j) => {
+    const n = HEAD_ROW + 1 + j;
+    d += `<row r="${n}" ht="20" customHeight="1">${r.map((x,i) => cell(colName(i), n, x)).join("")}</row>`;
+  });
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>
+<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="${HEAD_ROW}" topLeftCell="A${HEAD_ROW+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<sheetFormatPr defaultRowHeight="18"/>
+<cols>${widths.map((w,i) => `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>
+<sheetData>${d}</sheetData>
+${rows.length && rows[0][1] && rows[0][1].v !== "" ? `<autoFilter ref="A${HEAD_ROW}:${lastCol}${last}"/>` : ""}
+<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>
+<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>
+</worksheet>`;
+}
+function xlsxStyles(){
+  // fonts: 0 body · 1 header (white bold) · 2 title · 3 note (grey)
+  // cell styles: 0 default · 1 header · 2 date · 3 number · 4 text · 5 title · 6 note
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="1"><numFmt numFmtId="164" formatCode="ddd d mmm yyyy"/></numFmts>
+<fonts count="4">
+<font><sz val="11"/><color rgb="FF2A1C14"/><name val="Mulish"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Mulish"/></font>
+<font><b/><sz val="15"/><color rgb="FF2A1C14"/><name val="Mulish"/></font>
+<font><sz val="10"/><color rgb="FF7A6455"/><name val="Mulish"/></font>
+</fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE3530F"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>
+<border><left/><right/><top/><bottom style="thin"><color rgb="FFEFE1D5"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="7">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" indent="1"/></xf>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" indent="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+}
+function buildXlsx(sheets){           // sheets: [{name, xml, filterRef}]
+  const wbRels = sheets.map((s,i) =>
+    `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")
+    + `<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+  const names = sheets.map((s,i) => s.filterRef
+    ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${s.name}'!${s.filterRef}</definedName>` : "").join("");
+  return zipStore([
+    { name:"[Content_Types].xml", text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+${sheets.map((s,i) => `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}
+</Types>` },
+    { name:"_rels/.rels", text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name:"xl/workbook.xml", text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets>${sheets.map((s,i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets>
+${names ? `<definedNames>${names}</definedNames>` : ""}
+</workbook>` },
+    { name:"xl/_rels/workbook.xml.rels", text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${wbRels}</Relationships>` },
+    { name:"xl/styles.xml", text:xlsxStyles() }
+  ].concat(sheets.map((s,i) => ({ name:`xl/worksheets/sheet${i+1}.xml`, text:s.xml }))));
+}
+
+/* Consecutive marked days grouped into one stretch: [{start, end, days}] */
+function stretches(keys){
+  const out = []; let cur = null;
+  for(const k of keys.slice().sort()){
+    if(cur && nextDayKey(cur.end) === k){ cur.end = k; cur.days++; continue; }
+    cur = { start:k, end:k, days:1 }; out.push(cur);
+  }
+  return out;
+}
+
+/* Every person on the team now, with every date they have marked in any year. */
+function excelWorkbook(teamName, people, byMember, today){
+  const year = today.slice(0,4), d = parse(today);
+  const when = d.getDate()+" "+MON[d.getMonth()]+" "+d.getFullYear();
+  const list = people.slice().sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  const leaveRows = [], sumRows = [];
+  for(const m of list){
+    const keys = Object.keys(byMember[m.id] || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+    for(const s of stretches(keys))
+      leaveRows.push([{v:m.name,s:4}, {v:excelDate(s.start),s:2}, {v:excelDate(s.end),s:2}, {v:s.days,s:3}]);
+    const up = keys.filter(k => k >= today).sort();
+    sumRows.push([{v:m.name,s:4}, {v:keys.filter(k => k.slice(0,4) === year).length,s:3},
+                  {v:up.length,s:3}, up.length ? {v:excelDate(up[0]),s:2} : {v:"—",s:3}]);
+  }
+  const noLeaves = !leaveRows.length;
+  if(noLeaves) leaveRows.push([{v:"No leaves marked yet",s:4}, {v:"",s:4}, {v:"",s:4}, {v:"",s:4}]);
+  const L = leaveRows.length + 4, S = sumRows.length + 4;
+  return buildXlsx([
+    { name:"Leaves", filterRef: noLeaves ? null : "$A$4:$D$"+L,
+      xml: sheetXML(teamName+" · leaves", "Downloaded "+when+" \u00B7 one row per stretch of leave \u00B7 Days = dates marked, weekends included",
+                    ["Name","From","To","Days"], leaveRows, [26,19,19,9]) },
+    { name:"Summary", filterRef: sumRows.length ? "$A$4:$D$"+S : null,
+      xml: sheetXML(teamName+" · summary", "Downloaded "+when+" \u00B7 leave days = dates marked, weekends included",
+                    ["Name","Leave days in "+year,"Upcoming leave days","Next leave"], sumRows, [26,19,22,19]) }
+  ]);
+}
+
+async function exportExcel(){
+  if(!teamDoc){ return; }
+  toast("Preparing the Excel file…");
+  try {
+    const byMember = {};
+    const ys = await getDocs(collection(db, "teams", tid, "years"));
+    ys.forEach(yd => {
+      const days = (yd.data() || {}).days || {};
+      for(const mid of Object.keys(days)) byMember[mid] = Object.assign(byMember[mid] || {}, days[mid] || {});
+    });
+    const bytes = excelWorkbook(teamDoc.name, roster(), byMember, todayKey());
+    const d = new Date();
+    const file = "Team Leaves - "+String(teamDoc.name).replace(/[\\/:*?"<>|]+/g,"").trim()
+               +" - "+d.getDate()+" "+MON[d.getMonth()]+" "+d.getFullYear()+".xlsx";
+    download(file, bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    toast("Excel file downloaded");
+  } catch(e){ toast("Couldn't make the Excel file. Try again online."); }
+}
+
 async function copy(text, label){
   try { await navigator.clipboard.writeText(text); toast((label||"Copied")); }
   catch(e){
@@ -1259,7 +1524,7 @@ function render(){
   if(phase === "pick"){ $body.innerHTML = noTeamHTML(); return; }
   if(!roster().length){ $body.innerHTML = teamsBarHTML() + emptyTeamHTML(); return; }
   $body.innerHTML = teamsBarHTML() + segHTML() + chipsHTML()
-    + mismatchHTML()
+    + syncWarningHTML() + mismatchHTML()
     + (view === "calendar" ? calendarHTML() : peopleHTML()) + footHTML();
   if(openSheet_) refreshSheet();
 }
@@ -1271,7 +1536,7 @@ function renderTop(){
     : "";
   const m = me();
   document.getElementById("meAv").outerHTML =
-    `<span class="av" id="meAv" style="background:${m ? m.color : "rgba(255,255,255,.3)"}">${m ? esc(initials(m.name)) : "+"}</span>`;
+    `<span class="av" id="meAv" style="background:${m ? personColor(m) : "rgba(255,255,255,.3)"}">${m ? esc(initials(m.name)) : "+"}</span>`;
   document.getElementById("meName").textContent = m ? m.name.split(" ")[0] : "Pick your name";
 
   const line = document.getElementById("todayLine");
@@ -1290,7 +1555,9 @@ function renderStatus(){
   if(net.error === "missing") s.innerHTML = `<i class="bad"></i> That team no longer exists`;
   else if(net.error === "permission-denied") s.innerHTML = `<i class="bad"></i> Access denied — check your security rules`;
   else if(net.error) s.innerHTML = `<i class="bad"></i> Can't reach the server — showing saved data`;
-  else if(!net.online) s.innerHTML = `<i class="wait"></i> Offline — changes will sync automatically`;
+  else if(!net.online) s.innerHTML = net.pending
+    ? `<i class="wait"></i> Offline — ${unsynced > 0 ? unsynced+(unsynced===1?" change":" changes") : "changes"} waiting to sync`
+    : `<i class="wait"></i> Offline — changes will sync automatically`;
   else if(net.pending) s.innerHTML = `<i class="wait"></i> Saving…`;
   else if(net.stale) s.innerHTML = `<i class="wait"></i> Reconnecting — showing saved data`;
   else if(phase === "app") s.innerHTML = `<i></i> Synced with your team`;
@@ -1536,6 +1803,7 @@ function sheetHTMLFor(x){
   if(x.type === "newteam")    return newTeamSheetHTML();
   if(x.type === "whoami")     return whoamiSheetHTML();
   if(x.type === "account")    return accountSheetHTML();
+  if(x.type === "confirm")    return confirmSheetHTML();
   return "";
 }
 
@@ -1548,6 +1816,11 @@ function navApply(){
   const wantRange = navStack.some(x => x.screen === "range");
   const wantSheet = (top && top.screen === "sheet") ? top.s : null;
   let redraw = false;
+  // a confirmation that left the screen without its button being tapped is a no
+  if(confirmAsk && !(wantSheet && wantSheet.type === "confirm")){
+    const r = confirmAsk.resolve; confirmAsk = null;
+    if(r) r(false);
+  }
 
   if(wantPick && phase !== "pick"){
     stopAll(); tid = null; teamDoc = null; phase = "pick"; redraw = true;
@@ -1697,7 +1970,7 @@ function manageSheetHTML(){
       m.id===meId ? `<span>This is you on this phone</span>` : ""}</div>`;
     if(isLead) h += `<span class="lead">LEAD</span>`;
     if(m.id !== meId && !isLead) h += `<button class="pick" data-act="setme" data-id="${m.id}">I'm ${esc(m.name.split(" ")[0])}</button>`;
-    if(lead) h += `<button class="mini" data-act="editm" data-id="${m.id}" title="Edit name">✎</button>`;
+    if(lead || m.id === meId) h += `<button class="mini" data-act="editm" data-id="${m.id}" title="Edit name">✎</button>`;
     if(lead && !isLead) h += `<button class="mini" data-act="makelead" data-id="${m.id}" title="Make lead">★</button>
                               <button class="mini" data-act="rm" data-id="${m.id}" title="Remove">✕</button>`;
     if(isLead && m.id !== meId) h += `<button class="pick" data-act="setme" data-id="${m.id}">I'm ${esc(m.name.split(" ")[0])}</button>`;
@@ -1723,6 +1996,7 @@ function manageSheetHTML(){
 
   if(!lead) h += `<p style="font-size:12.5px;color:var(--ink-3);margin:12px 0 0">Only ${esc(leadName().split(" ")[0])} can add or remove people.</p>`;
   h += `<div class="act" style="margin-top:16px">
+    <button class="btn ghost" data-act="excel">Download Excel</button>
     <button class="btn flat" data-act="share">Share the app</button>
     <button class="btn flat" data-act="export">Download a backup</button>`;
   h += `<button class="btn flat" data-act="restore">Restore from a backup file</button>`;
@@ -1746,12 +2020,13 @@ function shareSheetHTML(){
 function editMemberSheetHTML(id){
   const m = member(id);
   if(!m) return `<h3>Not found</h3><div class="act"><button class="btn flat" data-act="back">Back</button></div>`;
-  return `<h3>Edit name</h3>
-    <div class="sub">${esc(teamDoc.name)}</div>
+  const self = id === meId;
+  return `<h3>${self ? "Edit my name" : "Edit name"}</h3>
+    <div class="sub">${self ? "Changes it in every team you're in" : esc(teamDoc.name)}</div>
     <div class="fld"><label>Full name</label>
       <input id="emName" value="${esc(m.name)}" autocomplete="off"></div>
     <p style="font-size:12.5px;color:var(--ink-3);margin:0 0 8px">
-      Fixing a spelling won't touch their marked leaves.</p>
+      ${self ? "Your marked leaves stay as they are." : "Fixing a spelling won't touch their marked leaves."}</p>
     <div class="act">
       <button class="btn primary" data-act="em-save" data-id="${id}">Save</button>
       <button class="btn flat" data-act="back">Cancel</button></div>`;
@@ -1871,6 +2146,7 @@ function accountSheetHTML(){
   let h = `<h3>${m ? esc(m.name) : "Pick your name"}</h3>
     <div class="sub">${teamDoc ? esc(teamDoc.name) : ""}${iAmLead() ? " · you're the lead" : ""}</div>
     <div class="act">
+      ${m ? `<button class="btn flat" data-act="editme">Edit my name</button>` : ""}
       <button class="btn ${m ? "flat" : "primary"}" data-act="whoami">${m ? "I'm someone else" : "Pick your name"}</button>
       <button class="btn flat" data-act="manage">${iAmLead() ? "Manage team" : "Team members"}</button>
       <button class="btn flat" data-act="pick">Join another team</button>
@@ -1884,6 +2160,30 @@ function accountSheetHTML(){
       Removing a team from this phone only hides it here — the team and its leaves stay for everyone else.
       <br>App version ${APP_VERSION}.</p>`;
   return h;
+}
+
+/* ── Confirmations ─────────────────────────────────────────────
+   An in-app sheet in place of the browser's plain pop-up. Resolves true on the
+   confirm button, false on Cancel, Back or tapping outside. On true the sheet
+   is still showing: the caller moves on with navBack() (back to the sheet
+   underneath) or closeSheet() (close everything). */
+let confirmAsk = null;      // {title, body, ok, danger, resolve}
+function askConfirm(o){
+  return new Promise(resolve => {
+    if(confirmAsk && confirmAsk.resolve) confirmAsk.resolve(false);
+    confirmAsk = Object.assign({}, o, { resolve });
+    navSheet({ type:"confirm" });
+  });
+}
+function confirmSheetHTML(){
+  if(!confirmAsk) return `<h3>Nothing to confirm</h3>
+    <div class="act"><button class="btn flat" data-act="back">Back</button></div>`;
+  const c = confirmAsk;
+  return `<h3>${esc(c.title)}</h3>
+    ${c.body ? `<p style="font-size:14px;color:var(--ink-2);margin:6px 0 18px;line-height:1.55">${esc(c.body)}</p>` : ""}
+    <div class="act">
+      <button class="btn ${c.danger ? "danger" : "primary"}" data-act="cf-ok">${esc(c.ok || "Confirm")}</button>
+      <button class="btn flat" data-act="back">Cancel</button></div>`;
 }
 
 function openWhoami(){
@@ -1987,6 +2287,13 @@ document.addEventListener("click", async e => {
     }
     return;
   }
+  if(act === "editme"){
+    if(!meId) return;
+    navSheet({ type:"editmember", id:meId });
+    const i = document.getElementById("emName");
+    if(i){ i.focus(); i.select(); }
+    return;
+  }
   if(act === "editm"){
     const id = el.getAttribute("data-id");
     navSheet({ type:"editmember", id });
@@ -2004,7 +2311,9 @@ document.addEventListener("click", async e => {
     const id = el.getAttribute("data-id"), k = el.getAttribute("data-k");
     const mm = member(id);
     if(!mm) return;
-    if(!confirm("Clear "+mm.name+"'s leave on "+longDate(k)+"?\n\nOnly affects "+teamDoc.name+".")) return;
+    if(!(await askConfirm({ title:"Clear "+mm.name.split(" ")[0]+"'s leave?",
+          body:longDate(k)+". Only affects "+teamDoc.name+".", ok:"Clear this leave", danger:true }))) return;
+    navBack();
     await clearFor(id, k);
     return;
   }
@@ -2012,7 +2321,10 @@ document.addEventListener("click", async e => {
   if(act === "rm"){
     const id = el.getAttribute("data-id"), m = member(id);
     if(!m) return;
-    if(!confirm("Remove "+m.name+" from "+teamDoc.name+"?\n\nThey come off the calendar, but their marked leaves are kept. Add them back later and the dates come back too.")) return;
+    if(!(await askConfirm({ title:"Remove "+m.name+"?",
+          body:"They come off "+teamDoc.name+"'s calendar, but their marked leaves are kept. Add them back later and the dates come back too.",
+          ok:"Remove "+m.name.split(" ")[0], danger:true }))) return;
+    navBack();
     await removeMember(id); refreshSheet(); render(); return;
   }
   if(act === "unrm"){
@@ -2021,7 +2333,10 @@ document.addEventListener("click", async e => {
   if(act === "purge"){
     const id = el.getAttribute("data-id"), f = formerMember(id);
     if(!f) return;
-    if(!confirm("Delete "+f.name+"'s leaves in "+teamDoc.name+" for good?\n\nThis can't be undone. Adding them back after this starts them with nothing.")) return;
+    if(!(await askConfirm({ title:"Delete "+f.name+"'s leaves for good?",
+          body:"This can't be undone. If you add them back to "+teamDoc.name+" after this, they start with nothing.",
+          ok:"Delete for good", danger:true }))) return;
+    navBack();
     await purgeFormer(id); refreshSheet(); render(); return;
   }
   if(act === "copylink"){ await copy(appLink(), "Link copied"); return; }
@@ -2031,7 +2346,9 @@ document.addEventListener("click", async e => {
     return;
   }
   if(act === "forget"){
-    if(!confirm("Leave "+teamDoc.name+" on this phone?\n\nThe team and its leaves stay for everyone else. You can rejoin any time from the team list.")) return;
+    if(!(await askConfirm({ title:"Leave "+teamDoc.name+" on this phone?",
+          body:"The team and its leaves stay for everyone else. You can rejoin any time from the team list.",
+          ok:"Leave on this phone", danger:true }))) return;
     const gone = tid;
     forgetTeam(gone);
     closeSheet();
@@ -2040,6 +2357,7 @@ document.addEventListener("click", async e => {
     return;
   }
   if(act === "export"){ exportJSON(); return; }
+  if(act === "excel"){ await exportExcel(); return; }
   if(act === "export-all"){ await exportAllTeams(); return; }
   if(act === "drift"){ navSheet({ type:"drift" }); return; }
   if(act === "drift-sync"){ await syncMyLeaves(); return; }
@@ -2056,7 +2374,9 @@ document.addEventListener("click", async e => {
   if(act === "rs-all-merge"){ await applyRestoreAll("merge"); return; }
   if(act === "rs-all-replace"){
     const n = pendingRestore ? pendingRestore.plan.filter(x => x.tid && x.lead).length : 0;
-    if(!confirm("Replace all leaves in "+n+(n===1?" team":" teams")+" with this backup?\n\nAnything marked since the backup was taken will be removed.")) return;
+    if(!(await askConfirm({ title:"Replace all leaves in "+n+(n===1?" team":" teams")+"?",
+          body:"Each team will match the backup exactly. Anything marked since the backup was taken will be removed.",
+          ok:"Replace all leaves", danger:true }))) return;
     await applyRestoreAll("replace");
     return;
   }
@@ -2064,11 +2384,17 @@ document.addEventListener("click", async e => {
   if(act === "rs-into"){
     const i = +el.getAttribute("data-i");
     const nm = pendingRestore && pendingRestore.plan[i] ? pendingRestore.plan[i].src.name : "that team";
-    if(!confirm("Add the leaves from \""+nm+"\" into "+teamDoc.name+"?")) return;
+    if(!(await askConfirm({ title:"Add these leaves into "+teamDoc.name+"?",
+          body:"Leaves from \u201C"+nm+"\u201D in the backup are added. Nothing already marked is removed.",
+          ok:"Add them" }))) return;
     await applyRestoreOne(i, "merge", true);
     return;
   }
   if(act === "rs-cancel"){ pendingRestore = null; navBack(); return; }
+  if(act === "cf-ok"){
+    if(confirmAsk && confirmAsk.resolve){ const r = confirmAsk.resolve; confirmAsk.resolve = null; r(true); }
+    return;
+  }
   if(act === "close"){ closeSheet(); return; }
   if(act === "back"){ navBack(); return; }
 });
@@ -2156,6 +2482,19 @@ document.addEventListener("click", async e => {
       const keys = datesBetween(from, endKey);
       const on = !(meId && daysOf(meId)[from]);
       anchorKey = null; hoverKey = null;
+      /* Removing several days at once gets a check: a drag that happened to
+         start on an existing leave could otherwise wipe a whole stretch. */
+      const losing = on ? [] : keys.filter(k => k >= todayKey() && meId && daysOf(meId)[k]);
+      if(losing.length >= 2){
+        paintPreview();
+        const a = parse(losing[0]), b = parse(losing[losing.length-1]);
+        const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        const fmt = d => WD[d.getDay()]+" "+d.getDate()+" "+MON[d.getMonth()];
+        if(!(await askConfirm({ title:"Remove "+losing.length+" days of leave?",
+              body:fmt(a)+" \u2013 "+fmt(b)+". Only the days you had marked are removed.",
+              ok:"Remove "+losing.length+" days", danger:true }))) return;
+        navBack();
+      }
       await writeLeaves(keys, on);
       return;
     }
@@ -2194,8 +2533,8 @@ document.getElementById("meBtn").addEventListener("click", () => {
   if(phase !== "app"){ return; }
   navSheet({ type:"account" });
 });
-window.addEventListener("online",  () => { net.online = true;  renderStatus(); });
-window.addEventListener("offline", () => { net.online = false; renderStatus(); });
+window.addEventListener("online",  () => { net.online = true;  render(); });
+window.addEventListener("offline", () => { net.online = false; render(); });
 
 /* ═══════════════════════════════════════════════════════════
    ⑩  Boot
