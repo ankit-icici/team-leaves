@@ -297,7 +297,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v21";
+const APP_VERSION = "v22";
 const COLORS = ["#F37E20","#8A1538","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#A16207","#7C2D12","#0E7490"];
 const DOW = ["M","T","W","T","F","S","S"];
@@ -441,18 +441,23 @@ function adoptMyTeams(){
   const mine = myIds();
   if(!mine.size) return;
   const left = loadLeft();
-  let n = 0;
+  let n = 0, first = null;
   for(const t of allTeams){
     if(known.some(k => k.id === t.id) || left.includes(t.id)) continue;
     const hit = (t.members || []).filter(m => mine.has(m.id));
     if(hit.length !== 1) continue;
     rememberTeam(t.id, t.name);
     lsSet("me:"+t.id, hit[0].id);
+    if(!first) first = t.id;
     n++;
   }
   if(n){
     toast(n === 1 ? "You've been added to a team" : "You've been added to "+n+" teams");
-    render();
+    /* Sitting on the first-run team list with nothing open: go straight in.
+       Staying put left people hunting for a team their phone already had.
+       A person who opened the list on purpose ("Join another team") stays. */
+    if(phase === "pick" && !tid && !navStack.some(x => x.screen === "pick")) openTeam(first);
+    else render();
   }
 }
 
@@ -473,6 +478,9 @@ function knownPeople(){
 function joinTeam(id){
   const t = allTeams.find(x => x.id === id);
   rememberTeam(id, t ? t.name : "Team");
+  // rejoining a team left earlier: it counts as theirs again for mirroring
+  const left = loadLeft();
+  if(left.includes(id)) lsSet("left", JSON.stringify(left.filter(x => x !== id)));
   lsSet("me:"+id, "");
   closeSheet();
   openTeam(id);
@@ -1295,9 +1303,10 @@ function configHTML(){
     block marked <code>PASTE YOUR FIREBASE CONFIG HERE</code>. Same values as before.</p></div>`;
 }
 
+/* Every team is listed. Teams already on this phone used to be left out, which
+   made a team the phone had joined on its own look as if it didn't exist. */
 function noTeamHTML(){
   const mine = new Set(known.map(t => t.id));
-  const others = allTeams.filter(t => !mine.has(t.id));
   let h = `<div class="card gate"><h2>Which team are you in?</h2>
     <p>Pick yours and this phone will remember. You'll only see your own team after this.</p>`;
 
@@ -1305,11 +1314,14 @@ function noTeamHTML(){
     h += `<p style="color:var(--ink-3)">No teams yet. Create the first one.</p>`;
   } else {
     h += `<ul class="mlist">`;
-    for(const t of others)
-      h += `<li><div class="who"><b>${esc(t.name)}</b><span>${t.size} ${t.size===1?"person":"people"}</span></div>
-        <button class="pick" data-act="join" data-id="${esc(t.id)}">I'm in this team</button></li>`;
+    for(const t of allTeams){
+      const have = mine.has(t.id);
+      h += `<li><div class="who"><b>${esc(t.name)}</b><span>${t.size} ${t.size===1?"person":"people"}${
+        have ? " · on this phone" : ""}</span></div>${have
+        ? `<button class="pick" data-act="team" data-id="${esc(t.id)}">Open</button>`
+        : `<button class="pick" data-act="join" data-id="${esc(t.id)}">I'm in this team</button>`}</li>`;
+    }
     h += `</ul>`;
-    if(!others.length) h += `<p style="color:var(--ink-3)">You've joined every team on the list.</p>`;
   }
 
   h += `<div class="or">OR</div>
