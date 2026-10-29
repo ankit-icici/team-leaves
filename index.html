@@ -304,7 +304,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v23";
+const APP_VERSION = "v24";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -552,7 +552,11 @@ function openTeam(id){
   lsSet("lastTeam", id);
   phase = "boot"; render();
 
-  subs.team = onSnapshot(doc(db, "teams", id),
+  /* Metadata changes too. Opening the app shows the saved copy first; when the
+     server confirms it unchanged, that is a metadata-only event. Without it the
+     team stayed marked "from saved copy" and the status line falsely said
+     "Reconnecting" seven seconds after every open. */
+  subs.team = onSnapshot(doc(db, "teams", id), { includeMetadataChanges:true },
     snap => {
       if(tid !== id) return;
       if(snap.exists() && snap.data().hidden) return;   // the teams listener moves us off it
