@@ -26,7 +26,7 @@ sees who's out. It is **not** an approval system, only visibility.
 | `sw.js` | Service worker: caches the app shell so it opens offline. Holds the cache version. |
 | `manifest.json` | Makes it installable (name, icons, colours). |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons. |
-| `firestore.rules` | Database security rules. A copy only: the live rules are whatever was last published in the Firebase console. |
+| `firestore.rules` | Database security rules. A copy only: the live rules are whatever was last published in the Firebase console. Checked October 29, 2026: the live rules (published August 18, 2026) match this file exactly. |
 | `SETUP.md`, `SETUP-V4.md` | One-time setup records from August 2026 (first setup, then the move to one link for everyone). History only: parts are out of date. |
 | `CLAUDE.md` | Read-first rules for any session. |
 | `HANDOFF.md` | This file. |
@@ -37,8 +37,8 @@ sees who's out. It is **not** an approval system, only visibility.
 - Plain HTML and JavaScript, no build step. Firebase JS SDK **10.12.2** loaded from
   `www.gstatic.com`.
 - Hosting: GitHub Pages from `main`, root folder. A push goes live in about 2 minutes.
-- Database: Google Firestore, location asia-south1 (Mumbai), free Spark plan, no card on
-  file. Firestore runs with `persistentLocalCache` so the app works offline.
+- Database: Google Firestore, location asia-south1 (Mumbai), free Spark plan (confirmed in
+  the console on October 29, 2026), no card on file. Firestore runs with `persistentLocalCache` so the app works offline.
 - Sign-in: Firebase **anonymous** auth, invisible to users. It only stops scripts that
   never loaded the app from reading the database.
 
@@ -182,9 +182,12 @@ Ankit's login; give him numbered click steps.
 
 ## 8. Open items
 
-1. **Firebase ownership:** which Google account owns project `team-leaves-270f6`, and
-   whether a second owner was added (the setup guide recommended it), is not recorded.
-   Ankit to confirm; then record it here.
+1. **Only one Firebase owner:** project `team-leaves-270f6` is owned by Ankit's dedicated
+   Google account (the account name is in Ankit's private index, `~/Desktop/AI/CLAUDE.md`,
+   not here, because this repo is public). Checked in the console on October 29, 2026: it is
+   the only owner, and no second owner was ever added, though the setup guide recommended
+   one. If that account is lost, nobody can manage the app. Ankit to decide whether to add a
+   second owner (Project settings → Users and permissions → Add member → Owner).
 2. **Not on ICICI Bank brand:** the app uses its own orange (#F37E20 / #E06A0E), maroon
    (#8A1538) and the phone's system font, not the brand orange #E3530F, maroon #94292E
    or Mulish. Ankit to decide whether to rebrand.
