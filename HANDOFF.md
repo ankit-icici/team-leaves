@@ -39,6 +39,9 @@ sees who's out. It is **not** an approval system, only visibility.
 - Hosting: GitHub Pages from `main`, root folder. A push goes live in about 2 minutes.
 - Database: Google Firestore, location asia-south1 (Mumbai), free Spark plan (confirmed in
   the console on October 29, 2026), no card on file. Firestore runs with `persistentLocalCache` so the app works offline.
+- Owner: Ankit's dedicated Google account is the **only** owner of the Firebase project, by
+  his decision (see `DECISIONS.md`). The account name is in his private index
+  (`~/Desktop/AI/CLAUDE.md`), not here, because this repo is public.
 - Sign-in: Firebase **anonymous** auth, invisible to users. It only stops scripts that
   never loaded the app from reading the database.
 
@@ -182,27 +185,21 @@ Ankit's login; give him numbered click steps.
 
 ## 8. Open items
 
-1. **Only one Firebase owner:** project `team-leaves-270f6` is owned by Ankit's dedicated
-   Google account (the account name is in Ankit's private index, `~/Desktop/AI/CLAUDE.md`,
-   not here, because this repo is public). Checked in the console on October 29, 2026: it is
-   the only owner, and no second owner was ever added, though the setup guide recommended
-   one. If that account is lost, nobody can manage the app. Ankit to decide whether to add a
-   second owner (Project settings → Users and permissions → Add member → Owner).
-2. **Not on ICICI Bank brand:** the app uses its own orange (#F37E20 / #E06A0E), maroon
+1. **Not on ICICI Bank brand:** the app uses its own orange (#F37E20 / #E06A0E), maroon
    (#8A1538) and the phone's system font, not the brand orange #E3530F, maroon #94292E
    or Mulish. Ankit to decide whether to rebrand.
-3. **Clutter in the team list:** three near-identical teams that differ only by an
+2. **Clutter in the team list:** three near-identical teams that differ only by an
    apostrophe or the word "Team", plus a few one-person teams that look like tests. The
    app can't delete teams (the rules forbid it); it has to be done in the Firebase
    console, after checking with each team's lead.
-4. No Excel / CSV export.
-5. Ordinary members can't fix their own name; only the lead can.
-6. No "N changes waiting to sync" banner. The one real data-loss window: a leave marked
+3. No Excel / CSV export.
+4. Ordinary members can't fix their own name; only the lead can.
+5. No "N changes waiting to sync" banner. The one real data-loss window: a leave marked
    offline on a phone whose storage is cleared before it syncs.
-7. In Select-range mode, an accidental drag that starts on an existing leave can clear
+6. In Select-range mode, an accidental drag that starts on an existing leave can clear
    many days at once.
-8. Some confirmations use the browser's plain `confirm()` box rather than an in-app sheet.
-9. Office network: Zscaler on bank laptops (and some managed phones) may block
+7. Some confirmations use the browser's plain `confirm()` box rather than an in-app sheet.
+8. Office network: Zscaler on bank laptops (and some managed phones) may block
    `googleapis.com` / `firebaseio.com`. Not recorded as tested.
 
 ## 9. History

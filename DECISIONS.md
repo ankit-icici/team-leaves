@@ -7,6 +7,7 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Oct 29, 2026 | The Firebase project keeps **one owner only**: Ankit's dedicated Google account (name in his private index, not this public repo). No second owner. Don't propose one again. | Ankit's choice, made after the risk was flagged once: if that account is lost, nobody can manage the app. |
 | Oct 29, 2026 | Claude releases changes itself: test, push to `main`, confirm live. Ankit no longer uploads files through the GitHub website. | Ankit's choice, matching his best practices. Replaces the August "hand me complete files" workflow. |
 | Oct 29, 2026 | `SETUP.md` and `SETUP-V4.md` are kept as one-time setup history, marked as such, with their content unchanged. `HANDOFF.md` describes the app as it is today. | Ankit's choice. |
 | Oct 29, 2026 | Notes brought up to date for v21; `CLAUDE.md` and this log added. | Ankit asked. |
