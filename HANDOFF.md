@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: October 29, 2026,
-for app version **v21**.
+for app version **v24**.
 
 ---
 
@@ -15,17 +15,21 @@ sees who's out. It is **not** an approval system, only visibility.
 - Live app: https://ankit-icici.github.io/team-leaves/
 - Repo (public): https://github.com/ankit-icici/team-leaves (branch `main`)
 - Owner: Ankit Garg. Official (ICICI Bank) work.
-- In use as of October 29, 2026: 12 teams, 69 names across all rosters (one person on
-  two teams counts twice). The biggest team has 33 people.
+- In use as of October 29, 2026: 8 visible teams (4 more hidden), 64 names across the
+  visible rosters (one person on two teams counts twice). The biggest team has 32 people.
+- Used mostly on personal phones, so the bank office network is not a concern (Ankit,
+  October 29, 2026).
 
 ## 2. Files
 
 | File | What it is |
 |---|---|
-| `index.html` | The whole app: inline CSS plus one ES module. About 2,200 lines. |
+| `index.html` | The whole app: inline CSS plus one ES module. About 2,700 lines. |
+| `mulish.woff2`, `mulish-OFL.txt` | Mulish, the ICICI Bank typeface: the brand master (`~/Desktop/ICICI Brand/03 Font - Mulish/`) cut down to Latin characters (29 KB), and its free licence. |
 | `sw.js` | Service worker: caches the app shell so it opens offline. Holds the cache version. |
 | `manifest.json` | Makes it installable (name, icons, colours). |
-| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons. |
+| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons, in ICICI Bank orange and maroon since v23. |
+| `test/` | Test tools (section 7): `run-checks.py` + `checks.mjs` (headless logic checks), `make-test-copy.py` + `mock-firebase.js` + `seed.html` (a private copy of the app on a fake database with made-up teams). |
 | `firestore.rules` | Database security rules. A copy only: the live rules are whatever was last published in the Firebase console. Checked October 29, 2026: the live rules (published August 18, 2026) match this file exactly. |
 | `SETUP.md`, `SETUP-V4.md` | One-time setup records from August 2026 (first setup, then the move to one link for everyone). History only: parts are out of date. |
 | `CLAUDE.md` | Read-first rules for any session. |
@@ -66,7 +70,8 @@ after about 7 days unused).
 ```
 teams/{teamId}              → { name, leadId, createdAt,
                                 members:       [{id, name, color}],
-                                formerMembers: [{id, name, color, removedAt}] }   // max 200
+                                formerMembers: [{id, name, color, removedAt}],    // max 200
+                                hidden, hiddenAt }                                 // optional
 teams/{teamId}/years/{YYYY} → { days: { memberId: { "2026-11-05": "full" } } }
 ```
 
@@ -80,6 +85,16 @@ teams/{teamId}/years/{YYYY} → { days: { memberId: { "2026-11-05": "full" } } }
   another team from the suggestions. The id is effectively the person's identity across
   teams.
 - Any legacy `"half"` value counts as a normal leave.
+- **Hidden teams:** `hidden: true` takes a team out of every list and off every phone,
+  for everyone; its data stays. The app has no button for it: set it in the Firebase
+  console (Firestore → Data → teams → the team → add field `hidden`, boolean, true). To
+  bring a team back, delete the `hidden` field. Four teams were hidden on October 29,
+  2026, at Ankit's request (two duplicate copies of one team, a one-person test team and
+  a former colleague's team): ids `t356e3f203j4k`, `t6m151241343l`, `t3d6s2b231k60`,
+  `t0h032f0n2r0l`. Names are kept out of this public repo; they are in Ankit's private
+  index.
+- Colours saved on people before v23 (#F37E20, #8A1538, #A16207) are mapped to the brand
+  palette when drawn (`OLD_COLORS`); saved records are not rewritten.
 
 Stored on the phone (`localStorage`, preferences only, never data):
 
@@ -105,14 +120,18 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v21)
+## 6. What the app does today (v24)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
   the person taps theirs, then taps their own name once. The phone remembers.
+- The list shows every team. Teams already on the phone say "on this phone · Open"
+  instead of disappearing (v22: a team the phone had joined by itself used to vanish
+  from the list, leaving nothing to tap).
 - "Create a team" makes the creator its lead.
 - If a lead adds someone who already has an identity on this phone (same member id),
-  the phone picks up the new team by itself and shows a toast.
+  the phone picks up the new team by itself and shows a toast. If the phone is on the
+  first-run team list at that moment, it opens that team straight away (v22).
 - Team chips at the top switch between the teams joined on this phone.
 
 **Marking leave**
@@ -120,10 +139,16 @@ say so once and let him decide.
 - Press and hold a date: who's out that day (a cell fits only two initials, or one
   initial plus "+N").
 - "Select range" button: drag from first to last day, or tap first then tap last. The
-  first day decides whether the range is marked or unmarked.
+  first day decides whether the range is marked or unmarked. Removing 2 or more marked
+  days asks first, showing the dates (v23).
 - Past dates can't be changed by members.
 - A leave is written to **every** team where this phone is recognised (matched by member
-  id, not by name). Teams joined without picking a name are skipped, with a nudge.
+  id, not by name). Teams joined without picking a name are skipped, with a nudge. All
+  teams' writes are handed to the database at once, so offline marks reach every team
+  (before v23 only the first team's write was queued offline).
+- Offline or slow: the toast says "saved on this phone, will sync when you're online", and
+  a card shows "N changes waiting to sync … don't clear this app's data or uninstall it"
+  until they arrive (v23).
 - If the person's dates differ between their teams, a "Your leaves don't match" card
   offers "Review and fix", which makes every team match the one on screen. It's also in
   the account menu as "Check my leaves match across teams".
@@ -133,15 +158,29 @@ say so once and let him decide.
 - Person chips filter the calendar to one person.
 - List tab: each person's upcoming leaves as text rows with weekdays
   ("Thu 20 – Fri 21 Aug"), a TODAY badge, no day counts, no mini-calendar.
-- Status line at the bottom: Synced / Saving… / Offline / Reconnecting / errors.
+- Status line at the bottom: Synced / Saving… / Offline (with the count waiting) /
+  Reconnecting / errors. Team and year listeners include metadata changes, so "Saving…"
+  clears and there is no false "Reconnecting" after opening (v23, v24).
 
 **Lead only (Manage team)**
 - Rename the team; add people (type-ahead suggests people already on other teams);
-  rename people (✎); hand over the lead (★); remove people (✕).
+  rename people (✎, this team only); hand over the lead (★); remove people (✕).
 - Removing someone is **reversible**: they move to "Removed · leaves kept" and their
   dates stay. "Add back" restores them with their dates. A second ✕ there deletes their
   dates for good: the only irreversible action in the app.
 - Clear anyone's leave on a date (including past dates), in this team only.
+
+**Everyone**
+- "Edit my name" (menu under your name, or ✎ on your own row): fixes your name in every
+  team you're on (v23).
+- "Download Excel" (Manage team / Team members): a real .xlsx built in the page with no
+  library. Sheet "Leaves": one row per stretch of leave (Name, From, To, Days), all years.
+  Sheet "Summary": each person's leave days this year, upcoming leave days, next leave.
+  Real date cells ("Thu 5 Nov 2026"), Mulish, orange header row, filters, frozen header,
+  fits one page wide when printed. Days count dates marked, weekends included. Checked to
+  open cleanly in Microsoft Excel.
+- Every "are you sure?" is an in-app sheet (`askConfirm`), not the browser's pop-up.
+  Back, Cancel or tapping outside always means no (v23).
 
 **Backup and restore**
 - "Download a backup" (one team) and "Back up all my teams" (account menu). Files are
@@ -157,7 +196,11 @@ say so once and let him decide.
 - "Leave <team> on this phone" hides it here only.
 - Installable PWA; works offline. Every sheet and mode is a history entry, so Android
   Back closes one layer at a time; each sheet also has its own ← / ✕ for iPhone.
-- The version (e.g. "v21") shows at the bottom of the screen and in the account menu.
+- The version (e.g. "v24") shows at the bottom of the screen and in the account menu.
+- Look (v23): ICICI Bank orange #E3530F (flat header, buttons), maroon #94292E (your-leave
+  bar, alerts), Mulish. A darker orange #B23F0A is used only for small orange text on
+  white, where the brand orange is too light to read. Internal tool, so no ICICI Bank
+  logo (brand rule for internal pieces).
 
 ## 7. Making a change and releasing it
 
@@ -169,14 +212,20 @@ Claude makes the change, tests it, pushes and checks it live. Ankit doesn't uplo
 3. **Bump the version in two places, together:** `APP_VERSION` in `index.html` and
    `CACHE` in `sw.js` (`v21` → `v22`, and so on). Otherwise phones may show the old copy.
 4. Test before pushing:
-   - `node --check` on the script extracted from `index.html`;
-   - run the pure functions headlessly: strip the Firebase imports and the boot block,
-     stub `document`, `localStorage` and `location`. This has caught real bugs;
-   - click through the real flows in a browser at phone size, using a throwaway test
-     team, never a real team's data.
+   - `python3 test/run-checks.py`: syntax check plus headless logic checks. Every line
+     must say "ok". Add a check for every bug fixed;
+   - `python3 test/make-test-copy.py`, then serve `test/site/` locally and click through
+     every changed flow at phone size. It runs on a fake database with made-up teams, so
+     nothing real is touched (a throwaway team on the real database would show up for
+     every user). Offline can be simulated there (see the script's notes). Delete
+     `test/site/` afterwards;
+   - for looking at real data, open the live app read-only; never tap dates or roster
+     controls on a real team.
 5. Commit with a clear message and push to `main`.
 6. Wait about 2 minutes, then confirm the live page shows the new `APP_VERSION` and
-   `sw.js` the new `CACHE`. Tell Ankit how to see it (close and reopen the app).
+   `sw.js` the new `CACHE`. Tell Ankit how to see it: close and reopen the app (installed),
+   or refresh the page (browser). The first open after a release can still show the old
+   copy; a second open shows the new one.
 7. Update this file and `DECISIONS.md` in the same session.
 
 If `firestore.rules` changes, the file in the repo does nothing by itself: the rules must
@@ -185,27 +234,23 @@ Ankit's login; give him numbered click steps.
 
 ## 8. Open items
 
-1. **Not on ICICI Bank brand:** the app uses its own orange (#F37E20 / #E06A0E), maroon
-   (#8A1538) and the phone's system font, not the brand orange #E3530F, maroon #94292E
-   or Mulish. Ankit to decide whether to rebrand.
-2. **Clutter in the team list:** three near-identical teams that differ only by an
-   apostrophe or the word "Team", plus a few one-person teams that look like tests. The
-   app can't delete teams (the rules forbid it); it has to be done in the Firebase
-   console, after checking with each team's lead.
-3. No Excel / CSV export.
-4. Ordinary members can't fix their own name; only the lead can.
-5. No "N changes waiting to sync" banner. The one real data-loss window: a leave marked
-   offline on a phone whose storage is cleared before it syncs.
-6. In Select-range mode, an accidental drag that starts on an existing leave can clear
-   many days at once.
-7. Some confirmations use the browser's plain `confirm()` box rather than an in-app sheet.
-8. Office network: Zscaler on bank laptops (and some managed phones) may block
-   `googleapis.com` / `firebaseio.com`. Not recorded as tested.
+None from the October 29, 2026 review: the brand, team-list clutter, Excel, own-name,
+sync-warning, range-removal and confirmation items were done in v23. The bank office
+network was dropped as an item: the app is used on personal phones (Ankit).
+
+Things to know rather than fix:
+- Removing someone keeps their dates (dormant). "Delete for good" is the lead's choice.
+- Hidden teams keep their data in the database. Deleting one for good can only be done
+  by Ankit in the Firebase console (Firestore → Data → teams → the team → ⋮ → Delete
+  document, and its `years` documents).
 
 ## 9. History
 
 | Date | Version | What changed |
 |---|---|---|
+| Oct 29, 2026 | v24 | False "Reconnecting" status about 7 seconds after every open fixed (team listener now hears metadata changes) |
+| Oct 29, 2026 | v23 | ICICI Bank look (orange, maroon, Mulish, flat header, icons); hidden teams; Excel download; anyone can fix their own name (all their teams); sync warning and offline-safe writes to every team; check before Select range removes 2+ days; in-app confirmations replace all browser pop-ups; test tools added in `test/` |
+| Oct 29, 2026 | v22 | Team list shows every team ("Open" for ones on the phone); a team the phone is added to opens straight away; rejoining a left team clears it from the left list |
 | Sep 9, 2026 | v21 | Reversible member removal, back navigation, people shared across teams (same member id, type-ahead, auto-adopt), page fetched fresh when online, version shown on screen |
 | Aug 27, 2026 | v16 | "Leaves don't match across teams" check and fix; lead can clear anyone's leave |
 | Aug 19, 2026 | v14 | First handoff written |

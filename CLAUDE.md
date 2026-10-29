@@ -12,9 +12,10 @@ app is and how it works today) → `DECISIONS.md` (what Ankit has decided; never
   version changed, then tell Ankit how to see it. He doesn't upload files.
 - **Every release bumps two things together:** `APP_VERSION` in `index.html` and `CACHE` in
   `sw.js`.
-- **Test before pushing:** `node --check` the extracted script, run the pure functions
-  headlessly, and click through on a phone-sized screen using a throwaway test team. Never
-  use a real team's data.
+- **Test before pushing:** `python3 test/run-checks.py` (all lines "ok"), then
+  `python3 test/make-test-copy.py` and click through every changed flow at phone size on
+  that private copy (fake database, made-up teams). Never test on a real team: even a
+  throwaway team on the real database shows up for every user.
 - **Don't undo the decisions in `DECISIONS.md`.** In particular: no sign-in, no half-days,
   one year document per team, Firestore as the source of truth.
 - **The repo is public.** No colleagues' names, personal data or secrets in code, notes or

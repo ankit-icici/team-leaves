@@ -1,0 +1,15 @@
+<script type="module">
+import "./mock-firebase.js";
+const M = window.__mock, y = new Date().getFullYear(), pad = n => String(n).padStart(2,"0");
+const d = n => { const t = new Date(); t.setDate(t.getDate()+n); return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate()); };
+const P = (id,name,color) => ({id,name,color});
+M.seed("teams/tDesign", { name:"Design Studio", leadId:"mA", createdAt:"2026-08-01T00:00:00Z",
+  members:[P("mA","Asha Rao","#F37E20"),P("mB","Bilal Khan","#8A1538"),P("mC","Chitra Nair","#0F766E"),P("mD","Dev Mehta","#A16207"),P("mE","Esha Sen","#1D4ED8")] });
+M.seed("teams/tSales", { name:"Sales North", leadId:"mF", createdAt:"2026-08-01T00:00:00Z",
+  members:[P("mF","Farhan Ali","#F37E20"),P("mA","Asha Rao","#B45309")] });
+M.seed("teams/tOld", { name:"Old Duplicate", leadId:"mA", hidden:true, members:[P("mA","Asha Rao","#F37E20")] });
+const days = {}; const put=(m,ks)=>{ for(const k of ks){ const yy=k.slice(0,4); (days[yy]=days[yy]||{}); (days[yy][m]=days[yy][m]||{})[k]="full"; } };
+put("mA",[d(2),d(3),d(4),d(10)]); put("mB",[d(0),d(3)]); put("mC",[d(3),d(5),d(6)]); put("mD",[d(3)]); put("mE",[d(12),d(13)]);
+for(const yy of Object.keys(days)) M.seed("teams/tDesign/years/"+yy, { days:days[yy] });
+M.seed("teams/tSales/years/"+y, { days:{ mA:{ [d(2)]:"full" } } });
+</script>
