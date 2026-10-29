@@ -2,7 +2,7 @@
    Caches the app itself so it opens with no signal.
    Your leave DATA is handled separately by Firestore's own offline cache. */
 
-const CACHE = "team-leaves-v24";
+const CACHE = "team-leaves-v25";
 const SHELL = ["./", "./index.html", "./manifest.json", "./mulish.woff2",
                 "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
 
@@ -36,7 +36,10 @@ function pageFirst(req){
     // don't let a dead connection hang the splash: fall back after 3.5s
     const timer = setTimeout(() => cached().then(done), 3500);
 
-    fetch(req).then(res => {
+    // "no-cache": always ask the server whether the page changed. The browser's own
+    // cache could otherwise hand back a copy up to 10 minutes old. (By URL: a
+    // navigation request can't be re-sent with options.)
+    fetch(req.url, { cache:"no-cache", credentials:"same-origin" }).then(res => {
       clearTimeout(timer);
       if(res && res.ok){
         const copy = res.clone();

@@ -2,7 +2,7 @@
 // The app's script is spliced in between the stubs below and the checks.
 
 const store={}; globalThis.localStorage={getItem:k=>k in store?store[k]:null,setItem:(k,v)=>{store[k]=String(v)},clear:()=>{for(const k in store)delete store[k]}};
-const el=()=>({innerHTML:"",textContent:"",outerHTML:"",classList:{add(){},remove(){},toggle(){}},addEventListener(){},querySelectorAll:()=>[],focus(){},select(){}});
+const el=()=>({style:{},innerHTML:"",textContent:"",outerHTML:"",classList:{add(){},remove(){},toggle(){}},addEventListener(){},querySelectorAll:()=>[],focus(){},select(){}});
 globalThis.document={getElementById:()=>el(),addEventListener(){},querySelector:()=>null,createElement:()=>el(),body:{appendChild(){},removeChild(){}},activeElement:null};
 globalThis.window={addEventListener(){}}; globalThis.history={pushState(){},replaceState(){},back(){},go(){}};
 globalThis.location={origin:"https://x",pathname:"/team-leaves/"};
@@ -79,3 +79,13 @@ known=[{id:"tB",name:"B"}]; allTeams=[{id:"tA",name:"A",members:[],size:0},{id:"
 const h=noTeamHTML(); ok(/data-act="team" data-id="tB">Open/.test(h)&&/data-act="join" data-id="tA"/.test(h),"team list: Open and join");
 // colours
 ok(personColor({color:"#F37E20"})==="#E3530F" && personColor({color:"#8A1538"})==="#94292E" && personColor({color:"#0F766E"})==="#0F766E","old avatar colours map to brand");
+
+// v25: the team list shows the app version; the header name button is hidden there
+known=[]; allTeams=[{id:"tA",name:"A",members:[],size:0}];
+ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows the version");
+{ const b={style:{}}; const g=document.getElementById; document.getElementById=id=>id==="meBtn"?b:g(id);
+  const realRT=renderTop; phase="pick"; teamDoc=null; meId=null;
+  try{ realRT(); }catch(e){}
+  ok(b.style.visibility==="hidden","name button hidden on the team list");
+  // (shown inside a team: checked on the test copy, which runs with a configured app)
+  document.getElementById=g; }

@@ -304,7 +304,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v24";
+const APP_VERSION = "v25";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -486,7 +486,11 @@ function knownPeople(){
   }
   return Array.from(byId.values());
 }
+/* Set when someone taps "I'm in this team": once the team opens, ask who they
+   are straight away instead of leaving them to find the name button. */
+let askWho = null;
 function joinTeam(id){
+  askWho = id;
   const t = allTeams.find(x => x.id === id);
   rememberTeam(id, t ? t.name : "Team");
   // rejoining a team left earlier: it counts as theirs again for mirroring
@@ -580,6 +584,10 @@ function openTeam(id){
       const y = new Date().getFullYear();
       watchYear(y); watchYear(y+1);
       render();
+      if(askWho === id){
+        askWho = null;
+        if(!meId) setTimeout(() => { if(tid === id && !meId && !openSheet_) openWhoami(); }, 600);
+      }
       if(!mismatchChecked && meId && myTargets().targets.length > 1){
         setTimeout(() => { checkMismatch().then(() => render()); }, 1200);
       }
@@ -1542,6 +1550,9 @@ function renderTop(){
   document.getElementById("meAv").outerHTML =
     `<span class="av" id="meAv" style="background:${m ? personColor(m) : "rgba(255,255,255,.3)"}">${m ? esc(initials(m.name)) : "+"}</span>`;
   document.getElementById("meName").textContent = m ? m.name.split(" ")[0] : "Pick your name";
+  /* The name button opens the menu for the team on screen, so it only shows once a
+     team is open. On the team list it used to sit there doing nothing when tapped. */
+  document.getElementById("meBtn").style.visibility = (CONFIGURED && phase === "app") ? "visible" : "hidden";
 
   const line = document.getElementById("todayLine");
   if(!CONFIGURED){ line.innerHTML = "One setup step left."; return; }
@@ -1597,7 +1608,8 @@ function noTeamHTML(){
 
   h += `<div class="or">OR</div>
     <p>Setting up a new team? You'll be its lead.</p>
-    <div class="act"><button class="btn primary" data-act="newteam">Create a team</button></div></div>`;
+    <div class="act"><button class="btn primary" data-act="newteam">Create a team</button></div></div>
+    <p class="hint"><span class="ver">${APP_VERSION}</span>&nbsp;</p>`;
   return h;
 }
 
@@ -2280,6 +2292,8 @@ document.addEventListener("click", async e => {
   }
   if(act === "setme"){
     claimMeId(tid, el.getAttribute("data-id"));
+    // picked from "Which one are you?": that question is answered, so close it
+    if(openSheet_ && openSheet_.type === "whoami") closeSheet();
     refreshSheet(); render();
     toast("Hi "+esc(me().name.split(" ")[0])+" — tap dates to mark your leave");
     // Newly identified in this team: your leaves elsewhere never reached it,
@@ -2567,8 +2581,30 @@ if(!CONFIGURED){
   });
 }
 
+/* Staying current. A phone that keeps the app open in a tab, or comes back to it
+   from the background, never reloads, so it could sit on an old copy for days.
+   The browser is asked to look for a new version whenever the app comes back to
+   the front; when one has been installed, the page reloads itself once — but
+   never while a sheet, a form or Select range is open, so nothing typed is lost. */
 if("serviceWorker" in navigator && location.protocol === "https:"){
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  const hadController = !!navigator.serviceWorker.controller;
+  let reg = null, updateReady = false, reloading = false, lastCheck = 0;
+  const reloadIfIdle = () => {
+    if(!updateReady || reloading || openSheet_ || rangeMode || dragging) return;
+    reloading = true; location.reload();
+  };
+  navigator.serviceWorker.register("sw.js").then(r => { reg = r; }).catch(() => {});
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if(!hadController) return;          // first install on this phone: nothing old to replace
+    updateReady = true; reloadIfIdle();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if(document.visibilityState !== "visible") return;
+    reloadIfIdle();
+    if(reg && Date.now() - lastCheck > 60000){ lastCheck = Date.now(); reg.update().catch(() => {}); }
+  });
+  // a sheet closing is a safe moment to apply a waiting update
+  window.addEventListener("popstate", () => setTimeout(reloadIfIdle, 400));
 }
 if(navigator.storage && navigator.storage.persist){
   navigator.storage.persisted().then(a => a ? true : navigator.storage.persist()).catch(() => {});
