@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: October 29, 2026,
-for app version **v24**.
+for app version **v25**.
 
 ---
 
@@ -120,14 +120,19 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v24)
+## 6. What the app does today (v25)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
   the person taps theirs, then taps their own name once. The phone remembers.
 - The list shows every team. Teams already on the phone say "on this phone · Open"
   instead of disappearing (v22: a team the phone had joined by itself used to vanish
-  from the list, leaving nothing to tap).
+  from the list, leaving nothing to tap). The app version shows under the list (v25), so
+  a member's screenshot tells you which version their phone runs.
+- After "I'm in this team", the app asks "Which one are you?" as soon as the team opens,
+  and closes that sheet once a name is picked (v25).
+- The header name button only shows inside a team; on the team list it used to do
+  nothing when tapped (v25).
 - "Create a team" makes the creator its lead.
 - If a lead adds someone who already has an identity on this phone (same member id),
   the phone picks up the new team by itself and shows a toast. If the phone is on the
@@ -196,6 +201,12 @@ say so once and let him decide.
 - "Leave <team> on this phone" hides it here only.
 - Installable PWA; works offline. Every sheet and mode is a history entry, so Android
   Back closes one layer at a time; each sheet also has its own ← / ✕ for iPhone.
+- Staying current (v25): whenever the app comes back to the front it asks for a new
+  version; once one is installed the page reloads itself, but never while a sheet, form
+  or Select range is open. `sw.js` fetches the page with `cache:"no-cache"` (by URL: a
+  navigation request can't be re-sent with options), so the browser's 10-minute HTML
+  cache can't hand back an old copy. Phones still on v24 or older need one manual
+  refresh to get this.
 - The version (e.g. "v24") shows at the bottom of the screen and in the account menu.
 - Look (v23): ICICI Bank orange #E3530F (flat header, buttons), maroon #94292E (your-leave
   bar, alerts), Mulish. A darker orange #B23F0A is used only for small orange text on
@@ -238,6 +249,14 @@ None from the October 29, 2026 review: the brand, team-list clutter, Excel, own-
 sync-warning, range-removal and confirmation items were done in v23. The bank office
 network was dropped as an item: the app is used on personal phones (Ankit).
 
+Being looked into:
+- On October 29, 2026 one member's phone (browser, not installed) showed the team list
+  without the one team he is on, while running v23 or later. The database and the code
+  were both checked and are correct: the team exists, isn't hidden, he is on it, and the
+  list draws every team it receives. Most likely his phone's saved copy of the data was
+  out of step. Advised: clear the site's data in the browser and reopen. If it happens
+  again, get a screenshot of the bottom of the team list (shows the version).
+
 Things to know rather than fix:
 - Removing someone keeps their dates (dormant). "Delete for good" is the lead's choice.
 - Hidden teams keep their data in the database. Deleting one for good can only be done
@@ -248,6 +267,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Oct 29, 2026 | v25 | Name button hidden on the team list (it never worked there); "Which one are you?" right after joining; version shown on the team list; phones update themselves; page always revalidated |
 | Oct 29, 2026 | v24 | False "Reconnecting" status about 7 seconds after every open fixed (team listener now hears metadata changes) |
 | Oct 29, 2026 | v23 | ICICI Bank look (orange, maroon, Mulish, flat header, icons); hidden teams; Excel download; anyone can fix their own name (all their teams); sync warning and offline-safe writes to every team; check before Select range removes 2+ days; in-app confirmations replace all browser pop-ups; test tools added in `test/` |
 | Oct 29, 2026 | v22 | Team list shows every team ("Open" for ones on the phone); a team the phone is added to opens straight away; rejoining a left team clears it from the left list |

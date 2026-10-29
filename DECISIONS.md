@@ -7,6 +7,7 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Oct 29, 2026 | The app updates itself on phones when a new version is out (only when nothing is open on screen). | Claude added it (v25) after a member appeared stuck on an older copy; reported to Ankit. |
 | Oct 29, 2026 | Testing the bank office network (Zscaler) is not needed. | Ankit: the app is used on personal phones. |
 | Oct 29, 2026 | Four teams hidden, not deleted: two duplicate copies of one team, a one-person test team and a former colleague's team (ids in `HANDOFF.md` section 4). | Ankit asked to delete them. Claude may not permanently delete data, so "delete" means hidden for everyone (reversible); Ankit can delete for good in the Firebase console. Their leaves were already in the real teams, except 2 past days in the test team. |
 | Oct 29, 2026 | A colleague who left ICICI Bank was removed from the biggest team. | Ankit's request. Done as the app's normal reversible removal; there were no leaves marked. |
