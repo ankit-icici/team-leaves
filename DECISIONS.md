@@ -7,6 +7,7 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Nov 10, 2026 | The alert sender runs on a Google Apps Script timer (every 5 minutes) in the Firebase owner's Google account, not on GitHub's scheduler; GitHub's version removed. | Ankit asked to find and fix why GitHub's runs never started; GitHub runs only a few percent of scheduled runs on this account. Ankit chose to switch the same night. |
 | Nov 10, 2026 | Alerts switched on for everyone (v28), straight after the test alert reached Ankit's phone. | Ankit's choice ("switch on now"), rather than waiting for the first 9 AM alert. |
 | Nov 10, 2026 | Phone alerts, delivered free through GitHub's scheduler and Firebase messaging (about 15 minutes' delay for change alerts), not Firebase's paid plan. | Ankit's choice. |
 | Nov 10, 2026 | New and cancelled leaves alert the team lead only. | Ankit's choice. |

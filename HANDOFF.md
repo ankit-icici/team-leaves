@@ -25,8 +25,8 @@ sees who's out. It is **not** an approval system, only visibility.
 | File | What it is |
 |---|---|
 | `index.html` | The whole app: inline CSS plus one ES module. About 3,000 lines. |
-| `alerts/send_alerts.py`, `alerts/test_send_alerts.py` | The alert sender (section 6, Alerts) and its checks. |
-| `.github/workflows/alerts.yml` | Runs the sender on GitHub's free scheduler. |
+| `alerts/apps-script/` | The alert sender, run by Google Apps Script (section 6, Alerts): `logic.js`, `Code.js`, `appsscript.json`. |
+| `alerts/test-alerts.mjs` | The sender's checks, including whole runs against a fake database. |
 | `mulish.woff2`, `mulish-OFL.txt` | Mulish, the ICICI Bank typeface: the brand master (`~/Desktop/ICICI Brand/03 Font - Mulish/`) cut down to Latin characters (29 KB), and its free licence. |
 | `sw.js` | Service worker: caches the app shell so it opens offline. Holds the cache version. |
 | `manifest.json` | Makes it installable (name, icons, colours). |
@@ -219,7 +219,7 @@ say so once and let him decide.
     Asha", in place of Monday's morning alert. The team name is added when a phone is
     in more than one team.
   - **New and cancelled leaves, to the team's lead only:** "Bilal marked leave" / "Thu 19
-    – Mon 23 Nov (5 days) · <team>", or "… cancelled leave", within about 15 minutes; one
+    – Mon 23 Nov (5 days) · <team>", or "… cancelled leave", within about 5 minutes; one
     alert per person per run. The lead's own changes aren't reported.
   - "Send me a test alert" and "Turn off alerts". Tapping an alert opens its team.
   - Phone check (v27): the Alerts screen shows the version of the app's background part
@@ -230,31 +230,39 @@ say so once and let him decide.
 - iPhone: alerts need the app on the Home Screen (iOS 16.4+); the screen explains how.
   Blocked phones get click-by-click steps to allow notifications.
 - How it works: the app gets a push token from Firebase Cloud Messaging (default key,
-  the app's own `sw.js`) and writes `devices/{id}`. `alerts/send_alerts.py` runs on
-  GitHub Actions every 15 minutes (at :07, :22, :37, :52) and at 8:53 AM IST: it compares each team's upcoming
-  dates with the last run (`meta/alerts`), sends change alerts, sends the morning ones
-  once a day (recorded before sending, so a failed run never repeats them), sends test
-  alerts, retries failed sends once, marks unreachable phones `dead` (a new token
-  revives them), skips people no longer on a team, and sends one alert per push token.
-  A team's first run, and anyone newly added, are recorded silently.
-- GitHub run logs of this public repo can be read by anyone, so on GitHub the sender
-  logs only team codes and counts, never names, team names or dates. Never change that.
-- Google side (set up November 10, 2026, keyless): service account
-  `team-leaves-alerts@team-leaves-270f6.iam.gserviceaccount.com` with only Cloud Datastore
-  User and Firebase Cloud Messaging Admin; Workload Identity pool `github`, provider
-  `team-leaves`, accepting only `ankit-icici/team-leaves` on `refs/heads/main`; that
-  provider may act as the service account. No key exists. APIs switched on: FCM, FCM
-  Registrations, Firebase Installations, IAM Credentials, STS, Firebase Rules. The web key
-  already allowed what phones need.
-- Run by hand: GitHub → Actions → Alerts → Run workflow ("dry run" shows what would be
-  sent; "force morning" works out this morning's alerts now). Locally, never sending:
-  `ANON=1 DRY_RUN=1 STATE_FILE=<temp file> python3 alerts/send_alerts.py`.
-- First real test, November 10, 2026: Ankit's Pixel (installed app) showed "Alerts are
-  working" about 6 minutes after sending, with Battery Saver on; Android holds back
-  background messages then. Expect seconds otherwise. The notification shows as
-  "Leaves · ankit-icici.github.io" (the manifest's short name).
-- GitHub pauses schedules after 60 quiet days; the workflow makes an empty commit every
-  40 days to prevent it.
+  the app's own `sw.js`) and writes `devices/{id}`. The **sender runs in Google Apps
+  Script** ("Team Leaves alerts", in the Firebase owner's Google Drive; script id in
+  Ankit's private index) on a timer **every 5 minutes**, signing in as the owner
+  (`ScriptApp.getOAuthToken`, scopes in `appsscript.json`: outside requests, timers,
+  datastore, firebase.messaging), so no key exists. Code: `alerts/apps-script/` —
+  `logic.js` (rules and wording; shared with the checks) and `Code.js` (reads Firestore,
+  sends through FCM v1 with `x-goog-user-project: team-leaves-270f6`). Each run:
+  compares upcoming dates with the last run (`meta/alerts`) and alerts leads (teams
+  with no lead get none), saving straight after; from 9:00 AM IST once per working
+  day sends the morning or Monday alert (recorded before sending, so a failure never
+  repeats it); sends test alerts requested in the last hour (found with a query, so
+  other phone records aren't read). Phone records are read only when there's
+  something to send: every read counts against Spark's 50,000 reads a day. Year
+  documents are fetched together (`UrlFetchApp.fetchAll`). Retries a failed send
+  once; marks unreachable phones `dead` (a new token revives them); skips people no
+  longer on a team; one alert per push token. A team's first run and anyone newly
+  added are recorded silently.
+- Change the sender: edit `alerts/apps-script/`, run `python3 test/run-checks.py`
+  (includes `alerts/test-alerts.mjs`: the rules, plus `Code.js` run after run against a
+  fake Firestore and messaging service), then upload with clasp from that folder:
+  `npx @google/clasp@2.4.2 push --force` (needs `clasp login` as the owner and the
+  `.clasp.json` with the script id, which is git-ignored). Uploading changes the code
+  only; the timer keeps running. `setup()` in the editor resets the timer (dry run
+  first); `dryRun()` logs what would be sent now. Logs: the script's Executions page,
+  private to the owner (full detail is fine there).
+- Why not GitHub: the first version ran on GitHub Actions' scheduler, which on this
+  account runs only a few percent of scheduled runs (the Alliances app's every-10-
+  minute schedule ran about 3 times a day). Its workflow and Python sender were
+  removed on November 10, 2026. The Google service account `team-leaves-alerts` and
+  Workload Identity pool `github` / provider `team-leaves` made for it are now unused
+  (see Open items).
+- The app's notification shows "Leaves · ankit-icici.github.io": Android adds the web
+  address to every web-app notification.
 
 **Other**
 - Share sheet: copy the link, or copy a ready WhatsApp message.
@@ -314,11 +322,9 @@ switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
 
-0. **Check first:** the first schedule (every 15 minutes on the quarter-hours) never
-   started on November 10, 2026: GitHub delays or drops scheduled runs at its busiest
-   minutes. Moved to :07, :22, :37, :52 and 8:53 AM IST the same evening. Confirm with `gh run list --workflow alerts.yml --event schedule`
-   that runs come every ~15 minutes and that the 8:55 AM IST one sent the morning
-   alerts; if none have run, look at GitHub → Actions → Alerts (is it enabled?).
+0. **Retire the unused GitHub link:** disable or delete the Workload Identity provider
+   `github/team-leaves` and the service account `team-leaves-alerts` (they still trust
+   this repo's main branch, though nothing uses them now). Needs Ankit's Google sign-in.
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
    person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
    screen again (e.g. for a new trial), set it back to `false`: only phones that opened
@@ -328,9 +334,8 @@ switches the session to "Ask permissions" and approves each command.
    address makes every phone start over (reinstall, pick team and name, turn alerts on).
    Claude recommended leaving it; Ankit hasn't decided. A free tweak offered: short name
    "Team Leaves" instead of "Leaves".
-3. The sender's change alerts come within about 15 minutes, not instantly (GitHub's free
-   scheduler; it can also run late at busy times). Instant would need Firebase's paid
-   Blaze plan (card on file); Ankit chose free.
+3. Change alerts come within about 5 minutes (the Apps Script timer), not instantly.
+   Instant would need Firebase's paid Blaze plan (card on file); Ankit chose free.
 
 Earlier: none from the October 29, 2026 review: the brand, team-list clutter, Excel, own-name,
 sync-warning, range-removal and confirmation items were done in v23. The bank office
