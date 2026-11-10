@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 10, 2026,
-for app version **v26**.
+for app version **v27**.
 
 ---
 
@@ -134,7 +134,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v26)
+## 6. What the app does today (v27)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -222,6 +222,11 @@ say so once and let him decide.
     – Mon 23 Nov (5 days) · <team>", or "… cancelled leave", within about 15 minutes; one
     alert per person per run. The lead's own changes aren't reported.
   - "Send me a test alert" and "Turn off alerts". Tapping an alert opens its team.
+  - Phone check (v27): the Alerts screen shows the version of the app's background part
+    and when an alert last reached this phone, and "Show a sample alert now" displays one
+    locally. No alert ever arriving = delivery problem; the sample not showing = the
+    phone is hiding Team Leaves alerts (Do Not Disturb, Chrome's or the app's
+    notification setting).
 - iPhone: alerts need the app on the Home Screen (iOS 16.4+); the screen explains how.
   Blocked phones get click-by-click steps to allow notifications.
 - How it works: the app gets a push token from Firebase Cloud Messaging (default key,
@@ -244,6 +249,10 @@ say so once and let him decide.
 - Run by hand: GitHub → Actions → Alerts → Run workflow ("dry run" shows what would be
   sent; "force morning" works out this morning's alerts now). Locally, never sending:
   `ANON=1 DRY_RUN=1 STATE_FILE=<temp file> python3 alerts/send_alerts.py`.
+- First real test, November 10, 2026: Ankit's Pixel (installed app) showed "Alerts are
+  working" about 6 minutes after sending, with Battery Saver on; Android holds back
+  background messages then. Expect seconds otherwise. The notification shows as
+  "Leaves · ankit-icici.github.io" (the manifest's short name).
 - GitHub pauses schedules after 60 quiet days; the workflow makes an empty commit every
   40 days to prevent it.
 
@@ -299,7 +308,8 @@ and can't do with an anonymous token.
 
 Google Cloud work (IAM, APIs) needs Ankit's sign-in: `gcloud` uses a separate profile
 `team-leaves` (`CLOUDSDK_ACTIVE_CONFIG_NAME=team-leaves`), never the default AV Studio one;
-sign it out when done. Claude Code blocks granting IAM permissions in auto mode; Ankit
+sign it out when done (done November 10, 2026: `gcloud auth revoke`, profile deleted).
+Claude Code blocks granting IAM permissions in auto mode; Ankit
 switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
@@ -334,6 +344,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 10, 2026 | v27 | Phone check on the Alerts screen (background version, last alert received, sample alert) |
 | Nov 10, 2026 | v26 | Phone alerts (morning, Monday week ahead, lead's new/cancelled leaves), on trial on Ankit's phone; sender on GitHub Actions with keyless Google sign-in; `devices` rule published; independent review's findings fixed before release |
 | Oct 29, 2026 | v25 | Name button hidden on the team list (it never worked there); "Which one are you?" right after joining; version shown on the team list; phones update themselves; page always revalidated |
 | Oct 29, 2026 | v24 | False "Reconnecting" status about 7 seconds after every open fixed (team listener now hears metadata changes) |
