@@ -175,6 +175,20 @@
   .mlist .pick{font-size:12.5px;font-weight:700;color:var(--o-700);flex:0 0 auto}
   .mlist .mini{font-size:16px;color:var(--ink-3);padding:2px 5px;line-height:1;flex:0 0 auto}
   .ver{float:right;font-variant-numeric:tabular-nums;opacity:.75}
+  .tog{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:13px 0;border-bottom:1px solid var(--line)}
+  .tog:last-child{border-bottom:0}
+  .tog .tx{flex:1;min-width:0}
+  .tog b{display:block;font-size:14.5px;font-weight:700}
+  .tog .d{display:block;font-size:12px;color:var(--ink-3);margin-top:2px;line-height:1.45}
+  .tog .sw{width:46px;height:28px;border-radius:14px;background:var(--line);position:relative;flex:0 0 auto;transition:background .18s}
+  .tog .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(42,28,20,.25);transition:left .18s}
+  .tog[aria-checked="true"] .sw{background:var(--o-500)}
+  .tog[aria-checked="true"] .sw::after{left:21px}
+  .note{font-size:13.5px;color:var(--ink-2);line-height:1.6;margin:0 0 14px}
+  .note ol{margin:8px 0 0;padding-left:20px}
+  .pill{display:inline-block;font-size:11px;font-weight:750;letter-spacing:.5px;padding:3px 9px;border-radius:999px;margin-left:6px;vertical-align:2px}
+  .pill.on{background:var(--o-500);color:#fff}
+  .pill.off{background:var(--line);color:var(--ink-2)}
   .mlist .av.dim{opacity:.38}
   .mlist li.ghost .who b{font-weight:600;color:var(--ink-2)}
   .mlist .grouphd{padding:14px 0 6px;border-bottom:0;font-size:11px;font-weight:750;
@@ -304,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v25";
+const APP_VERSION = "v26";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -514,7 +528,7 @@ function watchAllTeams(){
       allTeams = snap.docs.filter(d => !(d.data() || {}).hidden).map(d => {
         const v = d.data() || {};
         const mem = Array.isArray(v.members) ? v.members : [];
-        return { id:d.id, name:v.name || "Untitled team", members:mem, size:mem.length };
+        return { id:d.id, name:v.name || "Untitled team", leadId:v.leadId || null, members:mem, size:mem.length };
       }).sort((a,b) => String(a.name).localeCompare(String(b.name)));
       // a phone that had joined a team since hidden drops it (not added to "left",
       // so it comes back on its own if the team is ever un-hidden)
@@ -533,6 +547,7 @@ function watchAllTeams(){
       }
       adoptMyTeams();
       if(phase === "pick") render();
+      scheduleDeviceSync();
     },
     err => { net.error = err.code || "unavailable"; render(); }
   );
@@ -1820,6 +1835,7 @@ function sheetHTMLFor(x){
   if(x.type === "whoami")     return whoamiSheetHTML();
   if(x.type === "account")    return accountSheetHTML();
   if(x.type === "confirm")    return confirmSheetHTML();
+  if(x.type === "alerts")     return alertsSheetHTML();
   return "";
 }
 
@@ -1903,6 +1919,7 @@ function refreshSheet(){
   if(t === "share"){ showSheet(shareSheetHTML()); return; }
   if(t === "newteam" || t === "editmember" || t === "restore") return;   // never clobber a form or preview
   if(t === "drift"){ showSheet(driftSheetHTML()); return; }
+  if(t === "alerts"){ showSheet(alertsSheetHTML()); return; }
   if(t === "manage"){
     const keep = {};
     for(const id of ["amName","tmRename"]){
@@ -2165,6 +2182,8 @@ function accountSheetHTML(){
       ${m ? `<button class="btn flat" data-act="editme">Edit my name</button>` : ""}
       <button class="btn ${m ? "flat" : "primary"}" data-act="whoami">${m ? "I'm someone else" : "Pick your name"}</button>
       <button class="btn flat" data-act="manage">${iAmLead() ? "Manage team" : "Team members"}</button>
+      ${alertsVisible() ? `<button class="btn flat" data-act="alerts">Alerts<span class="pill ${
+        alertsState() === "on" ? "on\">On" : "off\">Off"}</span></button>` : ""}
       <button class="btn flat" data-act="pick">Join another team</button>
       <button class="btn flat" data-act="share">Share the app</button>
       <button class="btn flat" data-act="newteam">Create another team</button>
@@ -2175,6 +2194,161 @@ function accountSheetHTML(){
     <p style="font-size:12px;color:var(--ink-3);margin:12px 0 0;line-height:1.6">
       Removing a team from this phone only hides it here — the team and its leaves stay for everyone else.
       <br>App version ${APP_VERSION}.</p>`;
+  return h;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Alerts (phone notifications)
+
+   Each phone that turns alerts on keeps one record in devices/{id}: where to
+   send (a push token from Firebase Cloud Messaging), which teams it belongs to
+   as which person, and which alerts it wants. The sending itself is done by
+   alerts/send_alerts.py on GitHub's scheduler, every 15 minutes:
+     · New and cancelled leaves  → the team's lead
+     · Who's on leave today      → 9 AM IST, Mon–Fri and 1st, 3rd, 5th Saturdays
+     · Who's on leave this week  → Monday 9 AM, in place of that day's morning alert
+   sw.js shows them on the phone. Phones can write their record, never read one.
+   ═══════════════════════════════════════════════════════════ */
+/* Tried on one phone before everyone gets it: the Alerts screen shows only
+   where the link was opened once with #alerts, until this is true. */
+const ALERTS_FOR_ALL = false;
+const MESSAGING_SDK = "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+const ALERT_DEFAULTS = { morning:true, week:true, leads:true };
+
+function alertsVisible(){ return ALERTS_FOR_ALL || lsGet("alertsBeta") === "1"; }
+function alertPrefs(){
+  try { const j = JSON.parse(lsGet("alerts") || "null");
+        if(j && typeof j === "object") return Object.assign({}, ALERT_DEFAULTS, j); } catch(e){}
+  return Object.assign({}, ALERT_DEFAULTS);
+}
+function saveAlertPrefs(p){ lsSet("alerts", JSON.stringify(p)); }
+function deviceId(){
+  let d = lsGet("device");
+  if(!d){ d = "d"+Date.now().toString(36)+Math.random().toString(36).slice(2,8); lsSet("device", d); }
+  return d;
+}
+function isIOS(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+                         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
+function isInstalled(){
+  return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+}
+/* "install" (iPhone, not on the Home Screen yet) · "unsupported" · "blocked" · "off" · "on" */
+function alertsState(){
+  if(!("serviceWorker" in navigator) || !("Notification" in window) || !("PushManager" in window))
+    return isIOS() && !isInstalled() ? "install" : "unsupported";
+  if(Notification.permission === "denied") return "blocked";
+  return Notification.permission === "granted" && lsGet("alertsOn") === "1" ? "on" : "off";
+}
+/* Teams this phone's person leads — they're the ones who get new/cancelled leave alerts. */
+function teamsILead(){
+  return myTargets().targets
+    .filter(x => { const t = allTeams.find(a => a.id === x.tid); return t && t.leadId === x.mid; })
+    .map(x => x.name);
+}
+
+async function pushToken(){
+  const m = await import(MESSAGING_SDK);
+  if(!(await m.isSupported())) throw new Error("unsupported");
+  const reg = await navigator.serviceWorker.ready;
+  try { return await m.getToken(m.getMessaging(), { serviceWorkerRegistration: reg }); }
+  catch(e){   // iPhone's first request often fails once; a second one goes through
+    await new Promise(r => setTimeout(r, 1500));
+    return m.getToken(m.getMessaging(), { serviceWorkerRegistration: reg });
+  }
+}
+
+/* Keep this phone's record in step with its teams, names and choices. Writes only
+   when something changed, so opening the app costs nothing extra. */
+let deviceBusy = false, deviceTimer = null;
+function scheduleDeviceSync(){
+  if(deviceTimer) clearTimeout(deviceTimer);
+  deviceTimer = setTimeout(() => { deviceTimer = null; syncDevice(false); }, 2000);
+}
+async function syncDevice(force){
+  if(!CONFIGURED || !db || alertsState() !== "on" || deviceBusy) return false;
+  deviceBusy = true;
+  try {
+    const token = await pushToken();
+    const subs = myTargets().targets.map(t => ({ tid:t.tid, mid:t.mid }));
+    const prefs = alertPrefs();
+    const sig = JSON.stringify([token, subs, prefs]);
+    if(!force && sig === lsGet("deviceSent")) return true;
+    // dead:false — if the sender once found this phone unreachable, a new token revives it
+    await setDoc(doc(db, "devices", deviceId()), { token, subs, prefs, off:false, dead:false,
+      platform: isIOS() ? "ios" : (/Android/.test(navigator.userAgent) ? "android" : "other"),
+      updatedAt: new Date().toISOString() }, { merge:true });
+    lsSet("deviceSent", sig);
+    return true;
+  } catch(e){ return false; }
+  finally { deviceBusy = false; }
+}
+
+async function turnOnAlerts(){
+  if(!myTargets().targets.length){ toast("Pick your name first, then turn on alerts"); return; }
+  if(!navigator.onLine){ toast("Turning on alerts needs internet"); return; }
+  let perm = "default";
+  try { perm = await Notification.requestPermission(); } catch(e){}
+  if(perm !== "granted"){
+    refreshSheet();
+    toast(perm === "denied" ? "Alerts are blocked on this phone — steps are on screen" : "Alerts weren't turned on");
+    return;
+  }
+  lsSet("alertsOn", "1");
+  toast("Turning on alerts…");
+  const ok = await syncDevice(true);
+  if(!ok){ lsSet("alertsOn", "0"); toast("Couldn't turn on alerts. Check your connection and try again."); }
+  else toast("Alerts are on");
+  refreshSheet(); renderTop();
+}
+async function turnOffAlerts(){
+  lsSet("alertsOn", "0"); lsSet("deviceSent", "");
+  try { await setDoc(doc(db, "devices", deviceId()), { off:true, updatedAt:new Date().toISOString() }, { merge:true }); } catch(e){}
+  toast("Alerts are off on this phone");
+  refreshSheet();
+}
+async function requestTestAlert(){
+  try {
+    await setDoc(doc(db, "devices", deviceId()), { testAt:new Date().toISOString() }, { merge:true });
+    toast("Test alert on its way — it arrives within about 15 minutes");
+  } catch(e){ toast("Couldn't ask for a test. Check your connection."); }
+}
+
+function alertsSheetHTML(){
+  const st = alertsState(), p = alertPrefs(), lead = teamsILead();
+  let h = `<h3>Alerts${st === "on" ? `<span class="pill on">On</span>` : ""}</h3>
+    <div class="sub">On this phone</div>`;
+  if(st === "install")
+    return h + `<div class="note">On iPhone, alerts work once Team Leaves is on your Home Screen:
+      <ol><li>Open this link in <b>Safari</b>.</li><li>Tap <b>Share</b>, then <b>Add to Home Screen</b>.</li>
+      <li>Open Team Leaves from the new icon and come back here.</li></ol></div>
+      <div class="act"><button class="btn flat" data-act="close">Done</button></div>`;
+  if(st === "unsupported")
+    return h + `<div class="note">This browser can't show alerts. On Android, open the link in <b>Chrome</b>.
+      On iPhone, add the app to your Home Screen from <b>Safari</b> (Share → Add to Home Screen).</div>
+      <div class="act"><button class="btn flat" data-act="close">Done</button></div>`;
+  if(st === "blocked")
+    h += `<div class="note"><b>Alerts are blocked for Team Leaves on this phone.</b> To allow them:
+      <ol><li><b>Android app:</b> press and hold the Team Leaves icon → App info → Notifications → Allow.</li>
+      <li><b>Android, in Chrome:</b> tap the icon left of the web address → Permissions → Notifications → Allow.</li>
+      <li><b>iPhone:</b> Settings → Notifications → Team Leaves → Allow Notifications.</li></ol>
+      Then come back here and tap Turn on alerts.</div>`;
+  const row = (k, title, desc) => `<button class="tog" role="switch" aria-checked="${!!p[k]}" data-act="al-tog" data-k="${k}">
+      <span class="tx"><b>${title}</b><span class="d">${desc}</span></span><span class="sw"></span></button>`;
+  h += `<div style="margin:0 0 8px">`
+    + row("morning", "Who's on leave today", "9 AM, Monday to Friday and the 1st, 3rd and 5th Saturdays. Only when someone's on leave.")
+    + row("week", "Monday: who's on leave this week", "Comes in place of Monday's morning alert.")
+    + (lead.length ? row("leads", "New and cancelled leaves",
+        "In "+esc(lead.join(", "))+", which you lead. Arrives within about 15 minutes.") : "")
+    + `</div>`;
+  h += `<div class="act">`;
+  if(st === "on")
+    h += `<button class="btn flat" data-act="al-test">Send me a test alert</button>
+          <button class="btn flat" data-act="al-off">Turn off alerts</button>`;
+  else
+    h += `<button class="btn primary" data-act="al-on">Turn on alerts</button>`;
+  h += `<button class="btn flat" data-act="close">Done</button></div>
+    <p style="font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.6">
+      Alerts cover every team you're in on this phone. Your choices apply to all of them.</p>`;
   return h;
 }
 
@@ -2292,6 +2466,7 @@ document.addEventListener("click", async e => {
   }
   if(act === "setme"){
     claimMeId(tid, el.getAttribute("data-id"));
+    scheduleDeviceSync();
     // picked from "Which one are you?": that question is answered, so close it
     if(openSheet_ && openSheet_.type === "whoami") closeSheet();
     refreshSheet(); render();
@@ -2409,6 +2584,16 @@ document.addEventListener("click", async e => {
     return;
   }
   if(act === "rs-cancel"){ pendingRestore = null; navBack(); return; }
+  if(act === "alerts"){ navSheet({ type:"alerts" }); return; }
+  if(act === "al-tog"){
+    const k = el.getAttribute("data-k"), p = alertPrefs();
+    p[k] = !p[k]; saveAlertPrefs(p); refreshSheet();
+    if(alertsState() === "on") syncDevice(false);
+    return;
+  }
+  if(act === "al-on"){ await turnOnAlerts(); return; }
+  if(act === "al-off"){ await turnOffAlerts(); return; }
+  if(act === "al-test"){ await requestTestAlert(); return; }
   if(act === "cf-ok"){
     if(confirmAsk && confirmAsk.resolve){ const r = confirmAsk.resolve; confirmAsk.resolve = null; r(true); }
     return;
@@ -2531,6 +2716,16 @@ document.addEventListener("click", async e => {
   document.addEventListener("pointercancel", () => { reset(); });
 })();
 
+/* The Alerts screen is hidden while it's being tried out. An iPhone Home Screen
+   app has no address bar to open #alerts in, so tapping the version number five
+   times shows it too. */
+let verTaps = 0, verTimer = null;
+document.addEventListener("click", e => {
+  if(!e.target.closest || !e.target.closest(".ver")) return;
+  verTaps++; clearTimeout(verTimer); verTimer = setTimeout(() => { verTaps = 0; }, 1500);
+  if(verTaps >= 5 && !alertsVisible()){ verTaps = 0; lsSet("alertsBeta", "1"); toast("Alerts screen turned on — find it under your name"); }
+});
+
 document.addEventListener("input", e => {
   if(!e.target || e.target.id !== "amName") return;
   const box = document.getElementById("amSug");
@@ -2558,7 +2753,11 @@ window.addEventListener("offline", () => { net.online = false; render(); });
    ⑩  Boot
    ═══════════════════════════════════════════════════════════ */
 loadKnown();
-try { history.replaceState({ tlStack:[] }, ""); } catch(e){}
+// opening the link with #alerts once shows the alerts screen on this phone
+if(location.hash === "#alerts") lsSet("alertsBeta", "1");
+// the address is cleaned of #alerts and of an alert's ?t=, so a reload opens the team being viewed
+const openedFor = new URLSearchParams(location.search).get("t");
+try { history.replaceState({ tlStack:[] }, "", location.pathname); } catch(e){}
 if(!CONFIGURED){
   phase = "pick"; render();
 } else {
@@ -2567,7 +2766,10 @@ if(!CONFIGURED){
     if(!u) return;
     watchAllTeams();
     const last = lsGet("lastTeam");
-    const start = (last && known.some(t => t.id === last)) ? last : (known[0] ? known[0].id : null);
+    // a tapped alert opens the team it was about (?t=<team id>)
+    const asked = openedFor;
+    const start = (asked && known.some(t => t.id === asked)) ? asked
+                : (last && known.some(t => t.id === last)) ? last : (known[0] ? known[0].id : null);
     if(start) openTeam(start);
     else { phase = "pick"; render(); }
   });
@@ -2586,7 +2788,8 @@ if(!CONFIGURED){
    The browser is asked to look for a new version whenever the app comes back to
    the front; when one has been installed, the page reloads itself once — but
    never while a sheet, a form or Select range is open, so nothing typed is lost. */
-if("serviceWorker" in navigator && location.protocol === "https:"){
+// https, or this computer for testing (browsers treat localhost as secure)
+if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
   const hadController = !!navigator.serviceWorker.controller;
   let reg = null, updateReady = false, reloading = false, lastCheck = 0;
   const reloadIfIdle = () => {

@@ -1,0 +1,68 @@
+# Team Leaves alerts: runs alerts/send_alerts.py on GitHub's free scheduler.
+# Every 15 minutes for new and cancelled leaves; the 8:55 AM IST run (03:25 UTC)
+# makes the morning alert punctual, since GitHub can start scheduled runs late.
+#
+# Google sign-in is keyless: GitHub proves which repo is asking (OIDC), and
+# Google lets only this repo act as the service account below (Workload
+# Identity Federation). No key or password is stored anywhere.
+name: Alerts
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+    - cron: "25 3 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only show what would be sent (sends and saves nothing)"
+        type: boolean
+        default: true
+      force_morning:
+        description: "Also work out this morning's alerts now"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write    # the keep-alive commit below
+  id-token: write    # proves to Google that this run comes from this repo
+
+concurrency:
+  group: alerts
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/241879513784/locations/global/workloadIdentityPools/github/providers/team-leaves
+          service_account: team-leaves-alerts@team-leaves-270f6.iam.gserviceaccount.com
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet google-auth requests
+
+      - name: Send alerts
+        run: python alerts/send_alerts.py
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          FORCE_MORNING: ${{ inputs.force_morning && '1' || '0' }}
+
+      # GitHub pauses scheduled runs in a repo with no activity for 60 days.
+      # An empty commit every 40 days keeps the alerts running.
+      - name: Keep the schedule alive
+        if: github.event_name == 'schedule'
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $(( 40 * 86400 )) ]; then
+            git config user.name "team-leaves-alerts"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "Keep scheduled alerts running"
+            git push
+          fi

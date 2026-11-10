@@ -89,3 +89,16 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   ok(b.style.visibility==="hidden","name button hidden on the team list");
   // (shown inside a team: checked on the test copy, which runs with a configured app)
   document.getElementById=g; }
+
+// v26 alerts
+{ ok(alertsVisible()===false,"alerts screen hidden until #alerts was opened");
+  localStorage.setItem("tl:alertsBeta","1"); ok(alertsVisible()===true,"alerts screen shown after #alerts");
+  const p=alertPrefs(); ok(p.morning&&p.week&&p.leads,"all alerts on by default");
+  saveAlertPrefs({morning:false}); const q=alertPrefs(); ok(!q.morning&&q.week&&q.leads,"a switched-off alert stays off, others default on");
+  ok(/^d[a-z0-9]+$/.test(deviceId()) && deviceId()===deviceId(),"phone id made once and kept");
+  ok(alertsState()==="unsupported","no notification support in this test -> 'unsupported'");
+  const h=alertsSheetHTML(); ok(/can't show alerts/.test(h),"unsupported phone gets the right explanation");
+  allTeams=[{id:"tA",name:"Alpha",leadId:"me1",members:[{id:"me1",name:"Me"}],size:1},{id:"tB",name:"Beta",leadId:"zz",members:[{id:"me1",name:"Me"}],size:1}];
+  known=[]; localStorage.setItem("tl:meId","me1"); localStorage.setItem("tl:left","[]");
+  ok(teamsILead().join()==="Alpha","lead alerts offered only for teams this person leads");
+}

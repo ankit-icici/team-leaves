@@ -2,7 +2,7 @@
    Caches the app itself so it opens with no signal.
    Your leave DATA is handled separately by Firestore's own offline cache. */
 
-const CACHE = "team-leaves-v25";
+const CACHE = "team-leaves-v26";
 const SHELL = ["./", "./index.html", "./manifest.json", "./mulish.woff2",
                 "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
 
@@ -84,4 +84,37 @@ self.addEventListener("fetch", e => {
       return hit || fresh;
     })
   );
+});
+
+/* ── Alerts ───────────────────────────────────────────────────
+   alerts/send_alerts.py sends data-only messages through Firebase Cloud
+   Messaging: { title, body, tag, url }. Showing them is done here, so the app
+   needs no extra Firebase code in this worker. Every push must show something
+   (iPhone withdraws permission from apps that receive pushes silently). */
+self.addEventListener("push", e => {
+  let p = {};
+  try { p = e.data ? e.data.json() : {}; } catch(err){ p = {}; }
+  const d = p.data || p, n = p.notification || {};
+  const title = d.title || n.title || "Team Leaves";
+  const opts = { body: d.body || n.body || "", icon: "icon-192.png", data: { url: d.url || "./" } };
+  if(d.tag){ opts.tag = d.tag; opts.renotify = true; }
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+/* Tapping an alert opens the app on the team it was about — reusing an open
+   window when there is one. */
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type:"window", includeUncontrolled:true }).then(list => {
+    for(const c of list){
+      if(c.url.startsWith(self.registration.scope)){
+        // bring the open app forward on that team; if the browser won't let it
+        // change page (iPhone, or a window this worker doesn't control), open one
+        return c.focus().then(w => w && "navigate" in w ? w.navigate(url) : Promise.reject())
+                .catch(() => self.clients.openWindow(url));
+      }
+    }
+    return self.clients.openWindow(url);
+  }));
 });

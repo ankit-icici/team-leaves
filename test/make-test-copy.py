@@ -7,6 +7,8 @@ the real Firebase project. Serve it locally and click through at phone size:
 
 In the browser console: window.__mock.offline = true; dispatchEvent(new Event("offline"))
 to test offline, and window.__mock.goOnline(); dispatchEvent(new Event("online")) to reconnect.
+Alerts: the seed grants notification permission, so "Turn on alerts" works; phone
+records written by the app appear in window.__mock.store under devices/.
 test/site/ is throwaway: never commit it."""
 import os, re, shutil, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,9 +17,12 @@ shutil.rmtree(site, ignore_errors=True); os.makedirs(site)
 for f in ["sw.js", "manifest.json", "mulish.woff2", "icon-192.png", "icon-512.png", "icon-maskable-512.png"]:
     shutil.copy(os.path.join(root, f), site)
 shutil.copy(os.path.join(root, "test", "mock-firebase.js"), site)
+shutil.copy(os.path.join(root, "test", "mock-messaging.js"), site)
 s = open(os.path.join(root, "index.html"), encoding="utf-8").read()
 s = re.sub(r'from "https://www\.gstatic\.com/firebasejs/[\d.]+/firebase-(app|auth|firestore)\.js"', 'from "./mock-firebase.js"', s)
 if s.count("./mock-firebase.js") != 3: sys.exit("Firebase imports changed: update make-test-copy.py")
+s, n = re.subn(r'"https://www\.gstatic\.com/firebasejs/[\d.]+/firebase-messaging\.js"', '"./mock-messaging.js"', s)
+if n != 1: sys.exit("Messaging import changed: update make-test-copy.py")
 seed = open(os.path.join(root, "test", "seed.html"), encoding="utf-8").read()
 s = s.replace('<script type="module">', seed + '<script type="module">', 1)
 open(os.path.join(site, "index.html"), "w", encoding="utf-8").write(s)

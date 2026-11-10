@@ -1,4 +1,5 @@
-"""Headless logic checks for index.html: syntax check, then the app's own functions
+"""All automatic checks: the app (index.html), the alert display (sw.js) and the
+alert sender (alerts/). For index.html: syntax check, then the app's own functions
 run in Node against stubbed Firebase and browser objects (test/checks.mjs).
 
     python3 test/run-checks.py
@@ -17,4 +18,9 @@ checks = open(os.path.join(root, "test", "checks.mjs"), encoding="utf-8").read()
 run = os.path.join(tmp, "run.mjs"); open(run, "w", encoding="utf-8").write(checks)
 r = subprocess.run(["node", run], capture_output=True, text=True)
 print(r.stdout, r.stderr, sep="")
-sys.exit(1 if r.returncode or "FAIL" in r.stdout else 0)
+w = subprocess.run(["node", os.path.join(root, "test", "sw-checks.mjs"), os.path.join(root, "sw.js")], capture_output=True, text=True)
+print(w.stdout, w.stderr, sep="")
+a = subprocess.run([sys.executable, os.path.join(root, "alerts", "test_send_alerts.py")], capture_output=True, text=True)
+print(a.stdout, a.stderr, sep="")
+bad = r.returncode or w.returncode or a.returncode or "FAIL" in (r.stdout + w.stdout + a.stdout)
+sys.exit(1 if bad else 0)

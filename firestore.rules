@@ -62,6 +62,20 @@ service cloud.firestore {
       }
     }
 
+    // Alerts. Each phone that turns alerts on keeps one record here: its push
+    // token, which teams it belongs to as which person, and which alerts it
+    // wants. A phone can write its own record but can never read any record —
+    // only the alert sender (a Google service account, which these rules don't
+    // bind) reads them, so push tokens aren't exposed to other phones.
+    match /devices/{deviceId} {
+      allow create, update: if client()
+        && request.resource.data.keys().hasOnly(
+             ['token','subs','prefs','platform','updatedAt','testAt','off','dead','deadAt'])
+        && (!('token' in request.resource.data)
+            || (request.resource.data.token is string && request.resource.data.token.size() < 1000));
+      allow read, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
