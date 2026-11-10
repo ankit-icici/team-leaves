@@ -7,6 +7,14 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Nov 10, 2026 | Phone alerts, delivered free through GitHub's scheduler and Firebase messaging (about 15 minutes' delay for change alerts), not Firebase's paid plan. | Ankit's choice. |
+| Nov 10, 2026 | New and cancelled leaves alert the team lead only. | Ankit's choice. |
+| Nov 10, 2026 | Morning alert at 9 AM IST, Monday–Friday and the 1st, 3rd and 5th Saturdays, and none when nobody's on leave. | Ankit's choice. |
+| Nov 10, 2026 | Extra alerts: leave cancelled, and a Monday week-ahead in place of Monday's morning alert. | Ankit's choice. |
+| Nov 10, 2026 | Wording: "On leave today (3) · <team>" / "Asha, Bilal, Chitra"; "Bilal marked leave" / "Thu 19 – Mon 23 Nov (5 days) · <team>"; "On leave this week (16–21 Nov)" with "Mon 16: Asha" lines. | Ankit chose these from options shown on phone mock-ups. Claude adds the team name to the week title for phones in more than one team. |
+| Nov 10, 2026 | Alerts go to Ankit's phone first; everyone only on his word. | His rule for new features. |
+| Nov 10, 2026 | Google access for the sender is keyless (GitHub proves the repo; Google allows only this repo's main branch). | Claude's choice: no secret to store or leak. Ankit approved each permission. |
+| Nov 10, 2026 | The sender's public GitHub logs never show names or dates; the one early log that did was deleted. | Ankit approved the deletion. |
 | Oct 29, 2026 | The app updates itself on phones when a new version is out (only when nothing is open on screen). | Claude added it (v25) after a member appeared stuck on an older copy; reported to Ankit. |
 | Oct 29, 2026 | Testing the bank office network (Zscaler) is not needed. | Ankit: the app is used on personal phones. |
 | Oct 29, 2026 | Four teams hidden, not deleted: two duplicate copies of one team, a one-person test team and a former colleague's team (ids in `HANDOFF.md` section 4). | Ankit asked to delete them. Claude may not permanently delete data, so "delete" means hidden for everyone (reversible); Ankit can delete for good in the Firebase console. Their leaves were already in the real teams, except 2 past days in the test team. |

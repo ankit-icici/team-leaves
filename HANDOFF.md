@@ -1,8 +1,8 @@
 # Team Leaves: handoff
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
-first, then this file, then `DECISIONS.md`. Last brought up to date: October 29, 2026,
-for app version **v25**.
+first, then this file, then `DECISIONS.md`. Last brought up to date: November 10, 2026,
+for app version **v26**.
 
 ---
 
@@ -24,13 +24,15 @@ sees who's out. It is **not** an approval system, only visibility.
 
 | File | What it is |
 |---|---|
-| `index.html` | The whole app: inline CSS plus one ES module. About 2,700 lines. |
+| `index.html` | The whole app: inline CSS plus one ES module. About 3,000 lines. |
+| `alerts/send_alerts.py`, `alerts/test_send_alerts.py` | The alert sender (section 6, Alerts) and its checks. |
+| `.github/workflows/alerts.yml` | Runs the sender on GitHub's free scheduler. |
 | `mulish.woff2`, `mulish-OFL.txt` | Mulish, the ICICI Bank typeface: the brand master (`~/Desktop/ICICI Brand/03 Font - Mulish/`) cut down to Latin characters (29 KB), and its free licence. |
 | `sw.js` | Service worker: caches the app shell so it opens offline. Holds the cache version. |
 | `manifest.json` | Makes it installable (name, icons, colours). |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons, in ICICI Bank orange and maroon since v23. |
-| `test/` | Test tools (section 7): `run-checks.py` + `checks.mjs` (headless logic checks), `make-test-copy.py` + `mock-firebase.js` + `seed.html` (a private copy of the app on a fake database with made-up teams). |
-| `firestore.rules` | Database security rules. A copy only: the live rules are whatever was last published in the Firebase console. Checked October 29, 2026: the live rules (published August 18, 2026) match this file exactly. |
+| `test/` | Test tools (section 7): `run-checks.py` runs every check (`checks.mjs` for the app, `sw-checks.mjs` for alert display, and the sender's checks); `make-test-copy.py` + `mock-firebase.js` + `mock-messaging.js` + `seed.html` make a private copy of the app on a fake database with made-up teams. |
+| `firestore.rules` | Database security rules. A copy only: the live rules are whatever was last published in the Firebase console. Published November 10, 2026 (adds `devices`), through the Firebase Rules API, and checked: phones read teams and write their own alert record, but can't read any record, add other fields or delete. |
 | `SETUP.md`, `SETUP-V4.md` | One-time setup records from August 2026 (first setup, then the move to one link for everyone). History only: parts are out of date. |
 | `CLAUDE.md` | Read-first rules for any session. |
 | `HANDOFF.md` | This file. |
@@ -73,6 +75,10 @@ teams/{teamId}              → { name, leadId, createdAt,
                                 formerMembers: [{id, name, color, removedAt}],    // max 200
                                 hidden, hiddenAt }                                 // optional
 teams/{teamId}/years/{YYYY} → { days: { memberId: { "2026-11-05": "full" } } }
+devices/{deviceId}          → { token, subs:[{tid, mid}], prefs:{morning, week, leads},
+                                platform, updatedAt, off, testAt, dead, deadAt }
+meta/alerts                 → { state: JSON text: last run's upcoming dates per team,
+                                lastMorning, tests }          // sender only
 ```
 
 - One year document per team holds everyone's dates. Never switch to one document per
@@ -105,6 +111,9 @@ Stored on the phone (`localStorage`, preferences only, never data):
 | `tl:meId` | The last member id this phone claimed (used to recognise itself in other teams) |
 | `tl:lastTeam` | Team to reopen |
 | `tl:left` | Teams deliberately left on this phone, so they aren't re-adopted automatically |
+| `tl:device` | This phone's id for its alert record |
+| `tl:alerts`, `tl:alertsOn`, `tl:deviceSent` | Alert choices, whether alerts are on, and what was last written to the record |
+| `tl:alertsBeta` | Shows the Alerts screen while it's on trial (set by opening the link with `#alerts`, or tapping the version 5 times) |
 
 ## 5. Security model (a deliberate choice: read before "improving" it)
 
@@ -116,11 +125,16 @@ and `list` teams, so:
 - "only the lead manages the roster" and "you only edit your own leaves" are enforced in
   the app, not on the server. The server forbids only deletes.
 
+Alert records (`devices`) are the exception: phones can write their own but never read
+any, so push tokens aren't exposed. Only the sender reads them. Anyone could still
+register a phone for any team's alerts, which tells them no more than the app already
+shows.
+
 The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v25)
+## 6. What the app does today (v26)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -196,6 +210,43 @@ say so once and let him decide.
   (exact; keeps removed people's dates), "Only this", and "Into <current team>" for
   teams no longer here. Never removes anyone from a roster.
 
+**Alerts (v26; on trial on Ankit's phone, see Open items)**
+- Phone notifications, chosen per phone under your name → Alerts (each one on/off):
+  - **Who's on leave today:** "On leave today (3) · <team>" / "Asha, Bilal, Chitra",
+    9 AM IST, Monday–Friday and the 1st, 3rd and 5th Saturdays, only when someone's on
+    leave.
+  - **Monday week ahead:** "On leave this week (16–21 Nov)" with lines like "Mon 16:
+    Asha", in place of Monday's morning alert. The team name is added when a phone is
+    in more than one team.
+  - **New and cancelled leaves, to the team's lead only:** "Bilal marked leave" / "Thu 19
+    – Mon 23 Nov (5 days) · <team>", or "… cancelled leave", within about 15 minutes; one
+    alert per person per run. The lead's own changes aren't reported.
+  - "Send me a test alert" and "Turn off alerts". Tapping an alert opens its team.
+- iPhone: alerts need the app on the Home Screen (iOS 16.4+); the screen explains how.
+  Blocked phones get click-by-click steps to allow notifications.
+- How it works: the app gets a push token from Firebase Cloud Messaging (default key,
+  the app's own `sw.js`) and writes `devices/{id}`. `alerts/send_alerts.py` runs on
+  GitHub Actions every 15 minutes and at 8:55 AM IST: it compares each team's upcoming
+  dates with the last run (`meta/alerts`), sends change alerts, sends the morning ones
+  once a day (recorded before sending, so a failed run never repeats them), sends test
+  alerts, retries failed sends once, marks unreachable phones `dead` (a new token
+  revives them), skips people no longer on a team, and sends one alert per push token.
+  A team's first run, and anyone newly added, are recorded silently.
+- GitHub run logs of this public repo can be read by anyone, so on GitHub the sender
+  logs only team codes and counts, never names, team names or dates. Never change that.
+- Google side (set up November 10, 2026, keyless): service account
+  `team-leaves-alerts@team-leaves-270f6.iam.gserviceaccount.com` with only Cloud Datastore
+  User and Firebase Cloud Messaging Admin; Workload Identity pool `github`, provider
+  `team-leaves`, accepting only `ankit-icici/team-leaves` on `refs/heads/main`; that
+  provider may act as the service account. No key exists. APIs switched on: FCM, FCM
+  Registrations, Firebase Installations, IAM Credentials, STS, Firebase Rules. The web key
+  already allowed what phones need.
+- Run by hand: GitHub → Actions → Alerts → Run workflow ("dry run" shows what would be
+  sent; "force morning" works out this morning's alerts now). Locally, never sending:
+  `ANON=1 DRY_RUN=1 STATE_FILE=<temp file> python3 alerts/send_alerts.py`.
+- GitHub pauses schedules after 60 quiet days; the workflow makes an empty commit every
+  40 days to prevent it.
+
 **Other**
 - Share sheet: copy the link, or copy a ready WhatsApp message.
 - "Leave <team> on this phone" hides it here only.
@@ -240,12 +291,28 @@ Claude makes the change, tests it, pushes and checks it live. Ankit doesn't uplo
 7. Update this file and `DECISIONS.md` in the same session.
 
 If `firestore.rules` changes, the file in the repo does nothing by itself: the rules must
-be published in the Firebase console (Firestore Database → Rules → Publish). That needs
-Ankit's login; give him numbered click steps.
+be published. The November 10, 2026 update was published through the Firebase Rules API
+with Ankit's Google sign-in (create a ruleset, then point `releases/cloud.firestore` at
+it; Google checks the rules first). Without his sign-in: Firebase console → Firestore
+Database → Rules → Publish, with numbered click steps for him. Then test what phones can
+and can't do with an anonymous token.
+
+Google Cloud work (IAM, APIs) needs Ankit's sign-in: `gcloud` uses a separate profile
+`team-leaves` (`CLOUDSDK_ACTIVE_CONFIG_NAME=team-leaves`), never the default AV Studio one;
+sign it out when done. Claude Code blocks granting IAM permissions in auto mode; Ankit
+switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
 
-None from the October 29, 2026 review: the brand, team-list clutter, Excel, own-name,
+1. **Alerts on trial:** `ALERTS_FOR_ALL = false` in `index.html`, so only phones that
+   opened `#alerts` see the screen (Ankit's first). On Ankit's word: set it to `true`,
+   bump the version and release, then send the team a short WhatsApp note on turning
+   alerts on (iPhone: Home Screen first).
+2. The sender's change alerts come within about 15 minutes, not instantly (GitHub's free
+   scheduler; it can also run late at busy times). Instant would need Firebase's paid
+   Blaze plan (card on file); Ankit chose free.
+
+Earlier: none from the October 29, 2026 review: the brand, team-list clutter, Excel, own-name,
 sync-warning, range-removal and confirmation items were done in v23. The bank office
 network was dropped as an item: the app is used on personal phones (Ankit).
 
@@ -267,6 +334,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 10, 2026 | v26 | Phone alerts (morning, Monday week ahead, lead's new/cancelled leaves), on trial on Ankit's phone; sender on GitHub Actions with keyless Google sign-in; `devices` rule published; independent review's findings fixed before release |
 | Oct 29, 2026 | v25 | Name button hidden on the team list (it never worked there); "Which one are you?" right after joining; version shown on the team list; phones update themselves; page always revalidated |
 | Oct 29, 2026 | v24 | False "Reconnecting" status about 7 seconds after every open fixed (team listener now hears metadata changes) |
 | Oct 29, 2026 | v23 | ICICI Bank look (orange, maroon, Mulish, flat header, icons); hidden teams; Excel download; anyone can fix their own name (all their teams); sync warning and offline-safe writes to every team; check before Select range removes 2+ days; in-app confirmations replace all browser pop-ups; test tools added in `test/` |
