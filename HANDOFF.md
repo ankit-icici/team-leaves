@@ -275,8 +275,10 @@ say so once and let him decide.
   account runs only a few percent of scheduled runs (the Alliances app's every-10-
   minute schedule ran about 3 times a day). Its workflow and Python sender were
   removed on November 10, 2026. The Google service account `team-leaves-alerts` and
-  Workload Identity pool `github` / provider `team-leaves` made for it are now unused
-  (see Open items).
+  Workload Identity pool `github` / provider `team-leaves` made for it were **switched
+  off** (not deleted) on November 10, 2026, at Ankit's request; nothing uses them. To
+  remove for good, delete both in Google Cloud (IAM → Service accounts; IAM → Workload
+  Identity Federation).
 - The app's notification shows "Leaves · ankit-icici.github.io": Android adds the web
   address to every web-app notification.
 
@@ -338,9 +340,6 @@ switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
 
-0. **Retire the unused GitHub link:** disable or delete the Workload Identity provider
-   `github/team-leaves` and the service account `team-leaves-alerts` (they still trust
-   this repo's main branch, though nothing uses them now). Needs Ankit's Google sign-in.
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
    person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
    screen again (e.g. for a new trial), set it back to `false`: only phones that opened

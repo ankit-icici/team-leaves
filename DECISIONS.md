@@ -7,6 +7,7 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Nov 10, 2026 | The unused GitHub-side Google setup (Workload Identity pool `github` and service account `team-leaves-alerts`) is switched off, not deleted. | Ankit asked; Claude chose switching off so it can be undone. |
 | Nov 10, 2026 | **Only team leads get alerts**, and only about the teams they lead (morning, Monday and new/cancelled leave). Non-leads don't see Alerts in the menu; it appears when someone becomes a lead. Replaces "everyone can get the morning alerts". | Ankit. Claude noted that Ankit then gets no morning alerts for teams he's only a member of. |
 | Nov 10, 2026 | Leads are asked to turn alerts on: a pop-up once, then a reminder card until they turn alerts on or close it. Others aren't asked (they can turn alerts on from the menu). Alerts can't be on without the person's Allow tap (phone rule). | Ankit's choice ("pop-up for leads only"). Everyone can still get the morning and Monday alerts. |
 | Nov 10, 2026 | The Alerts screen has one test button ("Send me a test alert"); "Show a sample alert now" removed. | Ankit: the two looked the same. |
