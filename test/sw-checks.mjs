@@ -24,5 +24,3 @@ ok(store["last-alert"] && JSON.parse(store["last-alert"]).title==="Team Leaves",
 let reply=null;
 H.message({ data:{ type:"alert-status" }, ports:[{ postMessage:m=>{ reply=m; } }], waitUntil:p=>{ wait=p; } }); await wait;
 ok(reply && /^v\d+$/.test(reply.version) && reply.last && reply.last.title==="Team Leaves", "phone check reports version and last alert: "+JSON.stringify(reply));
-H.message({ data:{ type:"sample-alert" }, ports:[], waitUntil:p=>{ wait=p; } }); await wait;
-ok(shown.t==="Sample alert", "sample alert can be shown on demand");

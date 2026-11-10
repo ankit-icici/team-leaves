@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v28";
+const APP_VERSION = "v29";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -2203,7 +2203,7 @@ function accountSheetHTML(){
    Each phone that turns alerts on keeps one record in devices/{id}: where to
    send (a push token from Firebase Cloud Messaging), which teams it belongs to
    as which person, and which alerts it wants. The sending itself is done by
-   alerts/send_alerts.py on GitHub's scheduler, every 15 minutes:
+   alerts/apps-script/ on a Google Apps Script timer, every 5 minutes:
      · New and cancelled leaves  → the team's lead
      · Who's on leave today      → 9 AM IST, Mon–Fri and 1st, 3rd, 5th Saturdays
      · Who's on leave this week  → Monday 9 AM, in place of that day's morning alert
@@ -2310,7 +2310,7 @@ async function turnOffAlerts(){
 async function requestTestAlert(){
   try {
     await setDoc(doc(db, "devices", deviceId()), { testAt:new Date().toISOString() }, { merge:true });
-    toast("Test alert on its way — it arrives within about 15 minutes");
+    toast("Test alert on its way — it arrives within about 5 minutes");
   } catch(e){ toast("Couldn't ask for a test. Check your connection."); }
 }
 
@@ -2339,13 +2339,6 @@ async function fillAlertCheck(){
   box.innerHTML = "Phone check: background part " + esc(r.version) + (r.version !== APP_VERSION ? " (an update is waiting — close and reopen the app)" : "")
     + ". Last alert that reached this phone: " + (when ? "<b>" + esc(stamp) + "</b> (" + esc(r.last.title || "") + ")" : "<b>none yet</b>") + ".";
 }
-async function showSampleAlert(){
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    (navigator.serviceWorker.controller || reg.active).postMessage({ type:"sample-alert" });
-    toast("A sample alert should appear now. If it doesn't, the phone is hiding Team Leaves alerts");
-  } catch(e){ toast("Couldn't show a sample on this phone"); }
-}
 
 function alertsSheetHTML(){
   const st = alertsState(), p = alertPrefs(), lead = teamsILead();
@@ -2372,7 +2365,7 @@ function alertsSheetHTML(){
     + row("morning", "Who's on leave today", "9 AM, Monday to Friday and the 1st, 3rd and 5th Saturdays. Only when someone's on leave.")
     + row("week", "Monday: who's on leave this week", "Comes in place of Monday's morning alert.")
     + (lead.length ? row("leads", "New and cancelled leaves",
-        "In "+esc(lead.join(", "))+", which you lead. Arrives within about 15 minutes.") : "")
+        "In "+esc(lead.join(", "))+", which you lead. Arrives within about 5 minutes.") : "")
     + `</div>`;
   if(st === "on" || st === "off"){
     h += `<div class="note" id="alDiag" style="font-size:12.5px;margin:4px 0 12px">Checking this phone…</div>`;
@@ -2380,8 +2373,7 @@ function alertsSheetHTML(){
   }
   h += `<div class="act">`;
   if(st === "on")
-    h += `<button class="btn flat" data-act="al-sample">Show a sample alert now</button>
-          <button class="btn flat" data-act="al-test">Send me a test alert</button>
+    h += `<button class="btn flat" data-act="al-test">Send me a test alert</button>
           <button class="btn flat" data-act="al-off">Turn off alerts</button>`;
   else
     h += `<button class="btn primary" data-act="al-on">Turn on alerts</button>`;
@@ -2633,7 +2625,6 @@ document.addEventListener("click", async e => {
   if(act === "al-on"){ await turnOnAlerts(); return; }
   if(act === "al-off"){ await turnOffAlerts(); return; }
   if(act === "al-test"){ await requestTestAlert(); return; }
-  if(act === "al-sample"){ await showSampleAlert(); return; }
   if(act === "cf-ok"){
     if(confirmAsk && confirmAsk.resolve){ const r = confirmAsk.resolve; confirmAsk.resolve = null; r(true); }
     return;

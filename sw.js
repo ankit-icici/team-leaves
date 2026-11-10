@@ -2,7 +2,7 @@
    Caches the app itself so it opens with no signal.
    Your leave DATA is handled separately by Firestore's own offline cache. */
 
-const CACHE = "team-leaves-v28";
+const CACHE = "team-leaves-v29";
 const META = "team-leaves-meta";   // survives version changes: the last alert received
 const SHELL = ["./", "./index.html", "./manifest.json", "./mulish.woff2",
                 "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
@@ -109,14 +109,10 @@ function noteAlert(title){
     .catch(() => {});
 }
 
-/* The Alerts screen asks: which version is running here, when did an alert last
-   arrive, and please show a sample (to test the phone's own settings). */
+/* The Alerts screen asks: which version is running here, and when did an alert
+   last arrive. */
 self.addEventListener("message", e => {
   const m = e.data || {}, port = e.ports && e.ports[0];
-  if(m.type === "sample-alert")
-    e.waitUntil(self.registration.showNotification("Sample alert", {
-      body: "This is how Team Leaves alerts look on this phone.", icon: "icon-192.png",
-      tag: "sample", renotify: true, data: { url: "./" } }));
   if(m.type === "alert-status" && port)
     e.waitUntil(caches.open(META).then(c => c.match("last-alert")).then(r => r ? r.json() : null)
       .catch(() => null).then(last => port.postMessage({ version: CACHE.replace("team-leaves-", ""), last })));
