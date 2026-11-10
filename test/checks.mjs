@@ -91,8 +91,10 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   document.getElementById=g; }
 
 // v26 alerts
-{ ok(alertsVisible()===ALERTS_FOR_ALL,"alerts screen follows ALERTS_FOR_ALL ("+ALERTS_FOR_ALL+")");
-  localStorage.setItem("tl:alertsBeta","1"); ok(alertsVisible()===true,"alerts screen shown after #alerts");
+{ allTeams=[{id:"tL",name:"Led",leadId:"meL",members:[{id:"meL",name:"Me"}],size:1}]; known=[];
+  localStorage.setItem("tl:meId","meL"); localStorage.setItem("tl:left","[]");
+  ok(alertsVisible()===ALERTS_FOR_ALL,"alerts screen follows ALERTS_FOR_ALL for a lead ("+ALERTS_FOR_ALL+")");
+  localStorage.setItem("tl:alertsBeta","1"); ok(alertsVisible()===true,"alerts screen shown to a lead after #alerts");
   const p=alertPrefs(); ok(p.morning&&p.week&&p.leads,"all alerts on by default");
   saveAlertPrefs({morning:false}); const q=alertPrefs(); ok(!q.morning&&q.week&&q.leads,"a switched-off alert stays off, others default on");
   ok(/^d[a-z0-9]+$/.test(deviceId()) && deviceId()===deviceId(),"phone id made once and kept");
@@ -131,3 +133,17 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   rangeMode=false; askingAlerts=false; maybeAskLeadAlerts(); ok(pushed===1 && localStorage.getItem("tl:alertAsked")==="1","pop-up once when the screen is free");
   askingAlerts=false; maybeAskLeadAlerts(); ok(pushed===1,"never a second pop-up");
   globalThis.setTimeout=realST; navSheet=realNav; alertsState=realState; }
+
+// v31: Alerts menu for leads only
+{ localStorage.setItem("tl:alertsBeta","1"); localStorage.setItem("tl:meId","me1"); localStorage.setItem("tl:left","[]"); known=[];
+  allTeams=[{id:"tA",name:"Alpha",leadId:"me1",members:[{id:"me1",name:"Me"}],size:1}];
+  ok(alertsVisible()===true,"a lead sees Alerts in the menu");
+  allTeams[0].leadId="someoneElse"; ok(alertsVisible()===false,"someone who leads no team doesn't see Alerts");
+  allTeams[0].leadId="me1"; ok(alertsVisible()===true,"made lead: Alerts appears"); }
+
+// v31 review: the team on screen counts as led even before the team list loads
+{ allTeams=[]; known=[]; localStorage.setItem("tl:alertsBeta","1"); meId="me1"; tid="tX";
+  teamDoc={name:"Xray",leadId:"me1",members:[{id:"me1",name:"Me"}]};
+  ok(teamsILead().join()==="Xray" && alertsVisible(),"lead of the open team sees Alerts before the team list arrives");
+  teamDoc.leadId="other"; ok(!alertsVisible(),"…and not once they've handed the team over");
+  ok(/Alerts are for team leads/.test(alertsSheetHTML()),"Alerts screen opened after handing over says so, no broken line"); }

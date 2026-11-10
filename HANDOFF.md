@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 10, 2026,
-for app version **v30**.
+for app version **v31**.
 
 ---
 
@@ -113,7 +113,7 @@ Stored on the phone (`localStorage`, preferences only, never data):
 | `tl:left` | Teams deliberately left on this phone, so they aren't re-adopted automatically |
 | `tl:device` | This phone's id for its alert record |
 | `tl:alerts`, `tl:alertsOn`, `tl:deviceSent` | Alert choices, whether alerts are on, and what was last written to the record |
-| `tl:alertsBeta` | Shows the Alerts screen while it's on trial (set by opening the link with `#alerts`, or tapping the version 5 times) |
+| `tl:alertsBeta` | Shows the Alerts screen while it's on trial (set by opening the link with `#alerts`; the version-tap shortcut was removed in v31) |
 
 ## 5. Security model (a deliberate choice: read before "improving" it)
 
@@ -134,7 +134,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v30)
+## 6. What the app does today (v31)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -210,7 +210,12 @@ say so once and let him decide.
   (exact; keeps removed people's dates), "Only this", and "Into <current team>" for
   teams no longer here. Never removes anyone from a roster.
 
-**Alerts (v26; for everyone since v28)**
+**Alerts (v26; for team leads only since v31)**
+- **Only team leads get alerts, and only about the teams they lead** (Ankit, November
+  10, 2026). The Alerts item shows in the menu only for someone who leads a team (the
+  team on screen counts at once, before the full team list loads); it appears the
+  moment someone is made lead and goes when they hand over. The sender sends every
+  alert only to the lead of the team it's about.
 - Phone notifications, chosen per phone under your name → Alerts (each one on/off):
   - **Who's on leave today:** "On leave today (3) · <team>" / "Asha, Bilal, Chitra",
     9 AM IST, Monday–Friday and the 1st, 3rd and 5th Saturdays, only when someone's on
@@ -339,7 +344,7 @@ switches the session to "Ask permissions" and approves each command.
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
    person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
    screen again (e.g. for a new trial), set it back to `false`: only phones that opened
-   the link with `#alerts`, or tapped the version 5 times, then see it.
+   the link with `#alerts` then see it (and still only leads).
 2. Android shows the web address ("Leaves · ankit-icici.github.io") on every web-app
    notification; no app can remove it. Only a custom domain would replace it, and moving
    address makes every phone start over (reinstall, pick team and name, turn alerts on).
@@ -370,6 +375,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 10, 2026 | v31 | Alerts for team leads only: menu item only for leads, every alert only to the team's lead; independent review's fixes in |
 | Nov 10, 2026 | v30 | Leads asked once to turn alerts on (pop-up, then a reminder card on the Calendar); independent review's fixes in |
 | Nov 10, 2026 | v29 | One test button on the Alerts screen ("Show a sample alert now" removed); alerts said to arrive within about 5 minutes. Sender moved to a Google Apps Script timer the same night; its first test alert reached Ankit's phone at 10:27 PM |
 | Nov 10, 2026 | v28 | Alerts screen shown to everyone after the trial on Ankit's phone |

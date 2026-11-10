@@ -131,9 +131,12 @@ const at = (y, mo, d, h, mi) => Date.UTC(y, mo - 1, d, h, mi) - 330 * 60000;   /
 db["teams/A"] = { name: "Alpha", leadId: "L", members: [{ id: "L", name: "Lata Iyer" }, { id: "b", name: "Bilal Khan" }, { id: "c", name: "Chitra Nair" }] };
 db["teams/A/years/2026"] = { days: { c: { "2026-11-11": "full" } } };
 db["teams/H"] = { name: "Hidden", hidden: true, leadId: "L", members: [{ id: "L", name: "Lata Iyer" }] };
-db["devices/pL"] = { token: "TOKEN-LEAD", subs: [{ tid: "A", mid: "L" }, { tid: "H", mid: "L" }], prefs: { morning: true, week: true, leads: true }, updatedAt: "1" };
+db["teams/B"] = { name: "Beta", leadId: "L", members: [{ id: "L", name: "Lata Iyer" }, { id: "b", name: "Bilal Khan" }] };
+db["devices/pL"] = { token: "TOKEN-LEAD", subs: [{ tid: "A", mid: "L" }, { tid: "H", mid: "L" }, { tid: "B", mid: "L" }], prefs: { morning: true, week: true, leads: true }, updatedAt: "1" };
 db["devices/pb"] = { token: "TOKEN-B", subs: [{ tid: "A", mid: "b" }], prefs: { morning: true, week: true, leads: true }, updatedAt: "1" };
-db["devices/pGone"] = { token: "TOKEN-GONE", subs: [{ tid: "A", mid: "c" }], prefs: { morning: true }, updatedAt: "1" };
+db["devices/pGone"] = { token: "TOKEN-GONE", subs: [{ tid: "G", mid: "g" }], prefs: { morning: true }, updatedAt: "1" };
+db["teams/G"] = { name: "Gamma", leadId: "g", members: [{ id: "g", name: "Gita Paul" }] };
+db["teams/G/years/2026"] = { days: { g: { "2026-11-11": "full" } } };
 
 let s = run(at(2026, 11, 10, 20, 0));
 ok(s.length === 0 && db["meta/alerts"], "first run: nothing sent, starting point saved");
@@ -146,18 +149,19 @@ db["teams/A/years/2026"].days.L = { "2026-11-25": "full" };
 ok(run(at(2026, 11, 10, 20, 15)).length === 0, "the lead's own leave isn't reported to the lead");
 ok(run(at(2026, 11, 11, 8, 55)).length === 0, "8:55 AM: too early for the morning alert");
 s = run(at(2026, 11, 11, 9, 1));
-ok(s.length === 2 && s.every(x => x.title === "On leave today (1) · Alpha" && x.body === "Chitra"),
-   "9:01 AM: morning alert to both phones: " + JSON.stringify(s.map(x => x.token + " " + x.title)));
+ok(s.length === 1 && s[0].token === "TOKEN-LEAD" && s[0].title === "On leave today (1) · Alpha" && s[0].body === "Chitra",
+   "9:01 AM: morning alert to the lead only: " + JSON.stringify(s.map(x => x.token + " " + x.title)));
+ok(!s.some(x => x.token === "TOKEN-B"), "a team member who isn't the lead gets no morning alert");
 ok(db["devices/pGone"].dead === true, "a phone the service says is gone is marked unreachable, and the run carried on");
 ok(run(at(2026, 11, 11, 9, 6)).length === 0, "morning alert goes once a day");
 ok(run(at(2026, 11, 14, 9, 1)).length === 0, "2nd Saturday: no morning alert");
 db["teams/A/years/2026"].days.c["2026-11-17"] = "full";
 s = run(at(2026, 11, 16, 9, 2));
 const wk = s.filter(x => x.tag.startsWith("week"));
-ok(wk.length === 2 && wk[0].title.startsWith("On leave this week (16–21 Nov)") && /Thu 19 – Sat 21: Bilal/.test(wk[0].body),
+ok(wk.length === 1 && wk[0].token === "TOKEN-LEAD" && wk[0].title.startsWith("On leave this week (16–21 Nov)") && /Thu 19 – Sat 21: Bilal/.test(wk[0].body),
    "Monday: week-ahead alert: " + JSON.stringify(wk.map(x => x.title + " | " + x.body)));
 ok(s.filter(x => x.tag.startsWith("day")).length === 0, "Monday: no separate morning alert");
-ok(wk.find(x => x.token === "TOKEN-LEAD").title.endsWith("· Alpha"), "a phone in two teams sees which team the week alert is about");
+ok(wk[0].title.endsWith("· Alpha"), "a lead of two teams sees which team the week alert is about");
 ok(!s.some(x => /Hidden/.test(x.title + x.body)), "hidden team: no alerts");
 db["devices/pb"].testAt = "2026-11-16T04:25:00Z";   // asked 5 minutes before the run
 s = run(at(2026, 11, 16, 10, 0));
@@ -178,6 +182,17 @@ db["devices/px"] = { token: "TOKEN-X", subs: [{ tid: "N", mid: "x" }], prefs: {}
 run(at(2026, 11, 16, 10, 20));
 db["teams/N/years/2026"] = { days: { y: { "2026-11-27": "full" } } };
 ok(run(at(2026, 11, 16, 10, 25)).length === 0, "a team with no lead sends no change alerts to anyone");
+// leads only: a team with no lead, a lead who handed over, a member of two teams who leads neither
+db["teams/N/years/2026"].days.x = { "2026-11-18": "full" };
+db["devices/pY"] = { token: "TOKEN-Y", subs: [{ tid: "N", mid: "y" }], prefs: {}, updatedAt: "1" };
+s = run(at(2026, 11, 18, 9, 1));
+ok(!s.some(x => x.token === "TOKEN-X" || x.token === "TOKEN-Y"), "a team with no lead: no morning alert to anyone in it");
+db["teams/A"].leadId = "c";   // Lata hands Alpha over to Chitra
+db["teams/A/years/2026"].days.c["2026-11-19"] = "full";
+db["devices/pb2"] = { token: "TOKEN-B2", subs: [{ tid: "A", mid: "b" }, { tid: "B", mid: "b" }], prefs: {}, updatedAt: "2" };
+s = run(at(2026, 11, 19, 9, 1));
+ok(!s.some(x => x.token === "TOKEN-LEAD" && /Alpha/.test(x.title + x.body)), "a lead who handed over gets nothing more about that team");
+ok(!s.some(x => x.token === "TOKEN-B2"), "a member of two teams who leads neither gets nothing");
 sent.length = 0; G.runAlerts_({ nowMs: at(2026, 11, 17, 9, 5), dry: true });
 ok(sent.length === 0, "dry run sends nothing");
 

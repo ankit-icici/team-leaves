@@ -5,9 +5,11 @@
    Each run:
      1. New and cancelled leaves → the team's lead (not about their own changes).
      2. From 9:00 AM IST, once a day, on working days (Mon–Fri and the 1st, 3rd
-        and 5th Saturdays): "On leave today" to everyone who wants it; on Mondays,
-        "On leave this week" instead, for those who want that. Nothing is sent
+        and 5th Saturdays): "On leave today" to the team's lead; on Mondays,
+        "On leave this week" instead, if the lead wants that. Nothing is sent
         when nobody is on leave.
+   Alerts are for team leads only (Ankit, November 10, 2026): every alert goes
+   only to the lead of the team it's about.
      3. Test alerts asked for from the app's Alerts screen.
 
    Signs in as the script's owner (ScriptApp.getOAuthToken), so there is no key.
@@ -185,7 +187,10 @@ function runAlerts_(opts) {
     // read counts against the free plan's daily reads.
     var devices = (anyChange || due) ? liveDevices(listDocs_("devices")) : [];
     log.push(teams.length + " teams" + (devices.length ? ", " + devices.length + " phones" : ""));
-    var teamCount = function (d) { var s = {}; (d.subs || []).forEach(function (x) { if (x) s[x.tid] = 1; }); return Object.keys(s).length; };
+    // how many of the teams on this run the phone's person leads (for the week title)
+    var ledCount = function (d) {
+      return teams.filter(function (tt) { return tt.lead && tt.ids[tt.lead] && (d.subs || []).some(function (x) { return x && x.tid === tt.id && x.mid === tt.lead; }); }).length;
+    };
 
     // 1. New and cancelled leaves -> the lead (a team with no lead gets none)
     var runId = now.stamp.replace(/\D/g, ""), told = {};
@@ -222,9 +227,10 @@ function runAlerts_(opts) {
         var weekMsg = monday ? weekAlert(t.roster, t.days, today) : null;
         if (dayMsg) log.push(t.name + " today: " + dayMsg[0] + " | " + dayMsg[1]);
         if (weekMsg) log.push(t.name + " week: " + weekMsg[0] + " | " + weekMsg[1].replace(/\n/g, " / "));
-        subscribers(devices, t.id, t.ids).forEach(function (dev) {
+        if (!t.lead) return;   // only the lead hears about a team
+        subscribers(devices, t.id, t.ids, t.lead).forEach(function (dev) {
           if (monday && wants(dev[1], "week")) {
-            if (weekMsg) send_(dev, weekMsg[0] + (teamCount(dev[1]) > 1 ? DOT + t.name : ""), weekMsg[1], "week-" + t.id, url, log, dry);
+            if (weekMsg) send_(dev, weekMsg[0] + (ledCount(dev[1]) > 1 ? DOT + t.name : ""), weekMsg[1], "week-" + t.id, url, log, dry);
           } else if (wants(dev[1], "morning") && dayMsg) {
             send_(dev, dayMsg[0], dayMsg[1], "day-" + t.id, url, log, dry);
           }

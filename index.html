@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v30";
+const APP_VERSION = "v31";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -1927,6 +1927,8 @@ function refreshSheet(){
   if(t === "newteam" || t === "editmember" || t === "restore") return;   // never clobber a form or preview
   if(t === "drift"){ showSheet(driftSheetHTML()); return; }
   if(t === "alerts"){ showSheet(alertsSheetHTML()); return; }
+  // the menu follows changes live (e.g. Alerts appears the moment someone is made lead)
+  if(t === "account"){ showSheet(accountSheetHTML()); return; }
   if(t === "manage"){
     const keep = {};
     for(const id of ["amName","tmRename"]){
@@ -2223,7 +2225,12 @@ const ALERTS_FOR_ALL = true;
 const MESSAGING_SDK = "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 const ALERT_DEFAULTS = { morning:true, week:true, leads:true };
 
-function alertsVisible(){ return ALERTS_FOR_ALL || lsGet("alertsBeta") === "1"; }
+/* Alerts are for team leads only (Ankit, November 10, 2026): the menu shows
+   Alerts only to someone who leads a team, and it appears as soon as they
+   become one. The sender also sends only about the teams a person leads. */
+function alertsVisible(){
+  return (ALERTS_FOR_ALL || lsGet("alertsBeta") === "1") && teamsILead().length > 0;
+}
 function alertPrefs(){
   try { const j = JSON.parse(lsGet("alerts") || "null");
         if(j && typeof j === "object") return Object.assign({}, ALERT_DEFAULTS, j); } catch(e){}
@@ -2249,9 +2256,13 @@ function alertsState(){
 }
 /* Teams this phone's person leads — they're the ones who get new/cancelled leave alerts. */
 function teamsILead(){
-  return myTargets().targets
+  const out = myTargets().targets
     .filter(x => { const t = allTeams.find(a => a.id === x.tid); return t && t.leadId === x.mid; })
-    .map(x => x.name);
+    .map(x => ({ id:x.tid, name:x.name }));
+  // the team on screen counts straight away, even before the full team list has loaded
+  if(teamDoc && tid && meId && teamDoc.leadId === meId && !out.some(x => x.id === tid))
+    out.push({ id:tid, name:teamDoc.name });
+  return out.map(x => x.name);
 }
 
 async function pushToken(){
@@ -2397,6 +2408,9 @@ function alertsSheetHTML(){
   const st = alertsState(), p = alertPrefs(), lead = teamsILead();
   let h = `<h3>Alerts${st === "on" ? `<span class="pill on">On</span>` : ""}</h3>
     <div class="sub">On this phone</div>`;
+  if(!lead.length)   // stopped being a lead while this screen was open
+    return h + `<div class="note">Alerts are for team leads. You don't lead a team at the moment.</div>
+      <div class="act"><button class="btn flat" data-act="close">Done</button></div>`;
   if(st === "install")
     return h + `<div class="note">On iPhone, alerts work once Team Leaves is on your Home Screen:
       <ol><li>Open this link in <b>Safari</b>.</li><li>Tap <b>Share</b>, then <b>Add to Home Screen</b>.</li>
@@ -2415,7 +2429,7 @@ function alertsSheetHTML(){
   const row = (k, title, desc) => `<button class="tog" role="switch" aria-checked="${!!p[k]}" data-act="al-tog" data-k="${k}">
       <span class="tx"><b>${title}</b><span class="d">${desc}</span></span><span class="sw"></span></button>`;
   h += `<div style="margin:0 0 8px">`
-    + row("morning", "Who's on leave today", "9 AM, Monday to Friday and the 1st, 3rd and 5th Saturdays. Only when someone's on leave.")
+    + row("morning", "Who's on leave today", "9 AM, Monday to Friday and the 1st, 3rd and 5th Saturdays. Only when someone in your team is on leave.")
     + row("week", "Monday: who's on leave this week", "Comes in place of Monday's morning alert.")
     + (lead.length ? row("leads", "New and cancelled leaves",
         "In "+esc(lead.join(", "))+", which you lead. Arrives within about 5 minutes.") : "")
@@ -2432,7 +2446,7 @@ function alertsSheetHTML(){
     h += `<button class="btn primary" data-act="al-on">Turn on alerts</button>`;
   h += `<button class="btn flat" data-act="close">Done</button></div>
     <p style="font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.6">
-      Alerts cover every team you're in on this phone. Your choices apply to all of them.</p>`;
+      Alerts cover the teams you lead: ${esc(lead.join(", "))}. Your choices apply to all of them.</p>`;
   return h;
 }
 
@@ -2812,15 +2826,6 @@ document.addEventListener("click", async e => {
   document.addEventListener("pointercancel", () => { reset(); });
 })();
 
-/* The Alerts screen is hidden while it's being tried out. An iPhone Home Screen
-   app has no address bar to open #alerts in, so tapping the version number five
-   times shows it too. */
-let verTaps = 0, verTimer = null;
-document.addEventListener("click", e => {
-  if(!e.target.closest || !e.target.closest(".ver")) return;
-  verTaps++; clearTimeout(verTimer); verTimer = setTimeout(() => { verTaps = 0; }, 1500);
-  if(verTaps >= 5 && !alertsVisible()){ verTaps = 0; lsSet("alertsBeta", "1"); toast("Alerts screen turned on — find it under your name"); }
-});
 
 document.addEventListener("input", e => {
   if(!e.target || e.target.id !== "amName") return;
