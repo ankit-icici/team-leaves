@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v26";
+const APP_VERSION = "v27";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -2313,6 +2313,39 @@ async function requestTestAlert(){
   } catch(e){ toast("Couldn't ask for a test. Check your connection."); }
 }
 
+/* Phone check on the Alerts screen: is the background part of the app current,
+   and has an alert ever reached it? Answers "is it delivery or the phone?". */
+function swAsk(msg){
+  return navigator.serviceWorker.ready.then(reg => new Promise(res => {
+    const w = navigator.serviceWorker.controller || reg.active;
+    if(!w) return res(null);
+    const ch = new MessageChannel();
+    const t = setTimeout(() => res(null), 2500);
+    ch.port1.onmessage = e => { clearTimeout(t); res(e.data); };
+    w.postMessage(msg, [ch.port2]);
+  })).catch(() => null);
+}
+async function fillAlertCheck(){
+  const el = document.getElementById("alDiag");
+  if(!el) return;
+  const r = await swAsk({ type:"alert-status" });
+  const box = document.getElementById("alDiag");
+  if(!box) return;
+  if(!r){ box.innerHTML = "Phone check: the app's background part isn't running yet. Close the app fully and open it again."; return; }
+  const when = r.last ? new Date(r.last.at) : null;
+  const stamp = when ? when.toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }) + ", "
+    + when.getDate() + " " + MON[when.getMonth()] : "";
+  box.innerHTML = "Phone check: background part " + esc(r.version) + (r.version !== APP_VERSION ? " (an update is waiting — close and reopen the app)" : "")
+    + ". Last alert that reached this phone: " + (when ? "<b>" + esc(stamp) + "</b> (" + esc(r.last.title || "") + ")" : "<b>none yet</b>") + ".";
+}
+async function showSampleAlert(){
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    (navigator.serviceWorker.controller || reg.active).postMessage({ type:"sample-alert" });
+    toast("A sample alert should appear now. If it doesn't, the phone is hiding Team Leaves alerts");
+  } catch(e){ toast("Couldn't show a sample on this phone"); }
+}
+
 function alertsSheetHTML(){
   const st = alertsState(), p = alertPrefs(), lead = teamsILead();
   let h = `<h3>Alerts${st === "on" ? `<span class="pill on">On</span>` : ""}</h3>
@@ -2340,9 +2373,14 @@ function alertsSheetHTML(){
     + (lead.length ? row("leads", "New and cancelled leaves",
         "In "+esc(lead.join(", "))+", which you lead. Arrives within about 15 minutes.") : "")
     + `</div>`;
+  if(st === "on" || st === "off"){
+    h += `<div class="note" id="alDiag" style="font-size:12.5px;margin:4px 0 12px">Checking this phone…</div>`;
+    setTimeout(fillAlertCheck, 0);
+  }
   h += `<div class="act">`;
   if(st === "on")
-    h += `<button class="btn flat" data-act="al-test">Send me a test alert</button>
+    h += `<button class="btn flat" data-act="al-sample">Show a sample alert now</button>
+          <button class="btn flat" data-act="al-test">Send me a test alert</button>
           <button class="btn flat" data-act="al-off">Turn off alerts</button>`;
   else
     h += `<button class="btn primary" data-act="al-on">Turn on alerts</button>`;
@@ -2594,6 +2632,7 @@ document.addEventListener("click", async e => {
   if(act === "al-on"){ await turnOnAlerts(); return; }
   if(act === "al-off"){ await turnOffAlerts(); return; }
   if(act === "al-test"){ await requestTestAlert(); return; }
+  if(act === "al-sample"){ await showSampleAlert(); return; }
   if(act === "cf-ok"){
     if(confirmAsk && confirmAsk.resolve){ const r = confirmAsk.resolve; confirmAsk.resolve = null; r(true); }
     return;

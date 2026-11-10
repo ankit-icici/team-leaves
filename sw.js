@@ -2,7 +2,8 @@
    Caches the app itself so it opens with no signal.
    Your leave DATA is handled separately by Firestore's own offline cache. */
 
-const CACHE = "team-leaves-v26";
+const CACHE = "team-leaves-v27";
+const META = "team-leaves-meta";   // survives version changes: the last alert received
 const SHELL = ["./", "./index.html", "./manifest.json", "./mulish.woff2",
                 "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
 
@@ -18,7 +19,7 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== META).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -98,7 +99,27 @@ self.addEventListener("push", e => {
   const title = d.title || n.title || "Team Leaves";
   const opts = { body: d.body || n.body || "", icon: "icon-192.png", data: { url: d.url || "./" } };
   if(d.tag){ opts.tag = d.tag; opts.renotify = true; }
-  e.waitUntil(self.registration.showNotification(title, opts));
+  e.waitUntil(Promise.all([self.registration.showNotification(title, opts), noteAlert(title)]));
+});
+
+/* For the Alerts screen's phone check: when the last alert reached this phone. */
+function noteAlert(title){
+  return caches.open(META)
+    .then(c => c.put("last-alert", new Response(JSON.stringify({ at: Date.now(), title }))))
+    .catch(() => {});
+}
+
+/* The Alerts screen asks: which version is running here, when did an alert last
+   arrive, and please show a sample (to test the phone's own settings). */
+self.addEventListener("message", e => {
+  const m = e.data || {}, port = e.ports && e.ports[0];
+  if(m.type === "sample-alert")
+    e.waitUntil(self.registration.showNotification("Sample alert", {
+      body: "This is how Team Leaves alerts look on this phone.", icon: "icon-192.png",
+      tag: "sample", renotify: true, data: { url: "./" } }));
+  if(m.type === "alert-status" && port)
+    e.waitUntil(caches.open(META).then(c => c.match("last-alert")).then(r => r ? r.json() : null)
+      .catch(() => null).then(last => port.postMessage({ version: CACHE.replace("team-leaves-", ""), last })));
 });
 
 /* Tapping an alert opens the app on the team it was about — reusing an open
