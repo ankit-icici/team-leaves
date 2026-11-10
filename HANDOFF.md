@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 10, 2026,
-for app version **v28**.
+for app version **v29**.
 
 ---
 
@@ -134,7 +134,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v28)
+## 6. What the app does today (v29)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -222,11 +222,12 @@ say so once and let him decide.
     – Mon 23 Nov (5 days) · <team>", or "… cancelled leave", within about 5 minutes; one
     alert per person per run. The lead's own changes aren't reported.
   - "Send me a test alert" and "Turn off alerts". Tapping an alert opens its team.
-  - Phone check (v27): the Alerts screen shows the version of the app's background part
-    and when an alert last reached this phone, and "Show a sample alert now" displays one
-    locally. No alert ever arriving = delivery problem; the sample not showing = the
-    phone is hiding Team Leaves alerts (Do Not Disturb, Chrome's or the app's
-    notification setting).
+  - Phone check (v27): a small line on the Alerts screen shows the version of the app's
+    background part and when an alert last reached this phone. "Last alert: none yet"
+    after a test was sent = delivery problem; a recent time but nothing seen = the phone
+    is hiding Team Leaves alerts (Do Not Disturb, Battery Saver, notification settings).
+    A "Show a sample alert" button was removed in v29: it looked like a second test
+    button (Ankit).
 - iPhone: alerts need the app on the Home Screen (iOS 16.4+); the screen explains how.
   Blocked phones get click-by-click steps to allow notifications.
 - How it works: the app gets a push token from Firebase Cloud Messaging (default key,
@@ -250,8 +251,10 @@ say so once and let him decide.
 - Change the sender: edit `alerts/apps-script/`, run `python3 test/run-checks.py`
   (includes `alerts/test-alerts.mjs`: the rules, plus `Code.js` run after run against a
   fake Firestore and messaging service), then upload with clasp from that folder:
-  `npx @google/clasp@2.4.2 push --force` (needs `clasp login` as the owner and the
-  `.clasp.json` with the script id, which is git-ignored). Uploading changes the code
+  `npx @google/clasp@2.4.2 push --force` (needs `npx @google/clasp@2.4.2 login` as the
+  owner, a one-click sign-in in his Chrome, and `.clasp.json` = `{"scriptId": "<id from
+  Ankit's private index>", "rootDir": "."}`, which is git-ignored). Sign out after
+  (`clasp logout`). Uploading changes the code
   only; the timer keeps running. `setup()` in the editor resets the timer (dry run
   first); `dryRun()` logs what would be sent now. Logs: the script's Executions page,
   private to the owner (full detail is fine there).
@@ -359,6 +362,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 10, 2026 | v29 | One test button on the Alerts screen ("Show a sample alert now" removed); alerts said to arrive within about 5 minutes. Sender moved to a Google Apps Script timer the same night; its first test alert reached Ankit's phone at 10:27 PM |
 | Nov 10, 2026 | v28 | Alerts screen shown to everyone after the trial on Ankit's phone |
 | Nov 10, 2026 | v27 | Phone check on the Alerts screen (background version, last alert received, sample alert) |
 | Nov 10, 2026 | v26 | Phone alerts (morning, Monday week ahead, lead's new/cancelled leaves), on trial on Ankit's phone; sender on GitHub Actions with keyless Google sign-in; `devices` rule published; independent review's findings fixed before release |
