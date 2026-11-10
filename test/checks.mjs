@@ -91,7 +91,7 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   document.getElementById=g; }
 
 // v26 alerts
-{ ok(alertsVisible()===false,"alerts screen hidden until #alerts was opened");
+{ ok(alertsVisible()===ALERTS_FOR_ALL,"alerts screen follows ALERTS_FOR_ALL ("+ALERTS_FOR_ALL+")");
   localStorage.setItem("tl:alertsBeta","1"); ok(alertsVisible()===true,"alerts screen shown after #alerts");
   const p=alertPrefs(); ok(p.morning&&p.week&&p.leads,"all alerts on by default");
   saveAlertPrefs({morning:false}); const q=alertPrefs(); ok(!q.morning&&q.week&&q.leads,"a switched-off alert stays off, others default on");

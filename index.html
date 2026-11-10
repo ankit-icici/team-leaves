@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v27";
+const APP_VERSION = "v28";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -2209,9 +2209,10 @@ function accountSheetHTML(){
      · Who's on leave this week  → Monday 9 AM, in place of that day's morning alert
    sw.js shows them on the phone. Phones can write their record, never read one.
    ═══════════════════════════════════════════════════════════ */
-/* Tried on one phone before everyone gets it: the Alerts screen shows only
-   where the link was opened once with #alerts, until this is true. */
-const ALERTS_FOR_ALL = false;
+/* Tried on one phone before everyone got it (v26–v27): while this is false, the
+   Alerts screen shows only where the link was opened once with #alerts. On for
+   everyone since v28 (Ankit, November 10, 2026). */
+const ALERTS_FOR_ALL = true;
 const MESSAGING_SDK = "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 const ALERT_DEFAULTS = { morning:true, week:true, leads:true };
 
