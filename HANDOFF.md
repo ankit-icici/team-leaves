@@ -314,6 +314,11 @@ switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
 
+0. **Check first:** GitHub's automatic runs of the Alerts workflow had not started yet at
+   21:21 IST on November 10, 2026 (only hand-started runs, both successful). New schedules
+   can take a while. Confirm with `gh run list --workflow alerts.yml --event schedule`
+   that runs come every ~15 minutes and that the 8:55 AM IST one sent the morning
+   alerts; if none have run, look at GitHub → Actions → Alerts (is it enabled?).
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
    person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
    screen again (e.g. for a new trial), set it back to `false`: only phones that opened
