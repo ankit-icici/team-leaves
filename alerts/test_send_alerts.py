@@ -105,5 +105,13 @@ except Exception as e:
     ok(False, "network failure crashed the run: %s" % e)
 A.http = real_http
 
+# GitHub logs are public: no names there
+A.PUBLIC_LOG = True
+ok(A.private("Bilal marked leave", "team x: changed") == "team x: changed", "GitHub log shows the count-only line")
+log = []; A.DRY = True
+A.send("tok", "phone123", {"token": "T"}, "Bilal marked leave", "Fri 13 Nov", "chg-tA-b-1", "u", log)
+ok("Bilal" not in log[-1] and "13 Nov" not in log[-1], "a sent alert's log line has no name or date on GitHub: " + log[-1])
+A.PUBLIC_LOG = False
+
 print("\nAll passed" if not fails else f"\n{fails} FAILED")
 sys.exit(1 if fails else 0)

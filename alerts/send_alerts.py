@@ -44,6 +44,14 @@ DRY = os.environ.get("DRY_RUN") == "1"
 ANON = os.environ.get("ANON") == "1"
 STATE_FILE = os.environ.get("STATE_FILE")
 FORCE_MORNING = os.environ.get("FORCE_MORNING") == "1"
+# GitHub's run logs for this public repo can be read by anyone, so there the log
+# never shows people's names, team names or dates: only team codes and counts.
+PUBLIC_LOG = os.environ.get("GITHUB_ACTIONS") == "true"
+
+
+def private(full, public):
+    """The detailed log line on this computer; a count-only line on GitHub."""
+    return public if PUBLIC_LOG else full
 
 WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -293,7 +301,8 @@ def save_state(state, tok):
 
 
 def send(tok, dev_id, device, title, body, tag, url, log):
-    log.append(f"  -> {dev_id[:8]}  {title} | {body.replace(chr(10), ' / ')}")
+    log.append(private(f"  -> {dev_id[:8]}  {title} | {body.replace(chr(10), ' / ')}",
+                       f"  -> phone {dev_id[:6]}: {tag.split('-')[0]} alert"))
     if DRY:
         return
     msg = {"message": {"token": device["token"], "webpush": {
@@ -318,7 +327,7 @@ def send(tok, dev_id, device, title, body, tag, url, log):
             if attempt == 1 and (e.code == 429 or e.code >= 500):
                 time.sleep(3)
                 continue
-            log.append(f"     failed: HTTP {e.code} {detail[:200]}")
+            log.append(f"     failed: HTTP {e.code} " + private(detail[:200], ""))
             return
         except Exception as e:
             if attempt == 1:
@@ -379,7 +388,8 @@ def main():
             if mid == t["lead"]:
                 continue
             title, body = change_alert(names[mid], t["name"], added, removed, today.year)
-            log.append(f"{t['name']}: {title} - {body}")
+            log.append(private(f"{t['name']}: {title} - {body}",
+                               f"team {t['id']}: one person's leave changed"))
             if ANON:
                 log.append("  -> (the lead's phone, if it has alerts on)")
             for dev_id, d in devices_for(t, t["lead"]):
@@ -407,9 +417,11 @@ def main():
             day_msg = morning_alert(t["name"], t["roster"], t["days"], today)
             week_msg = week_alert(t["roster"], t["days"], today) if monday else None
             if day_msg:
-                log.append(f"{t['name']} today: {day_msg[0]} | {day_msg[1]}")
+                log.append(private(f"{t['name']} today: {day_msg[0]} | {day_msg[1]}",
+                                   f"team {t['id']}: morning alert ready"))
             if week_msg:
-                log.append(f"{t['name']} week: {week_msg[0]} | {week_msg[1].replace(chr(10), ' / ')}")
+                log.append(private(f"{t['name']} week: {week_msg[0]} | {week_msg[1].replace(chr(10), ' / ')}",
+                                   f"team {t['id']}: week-ahead alert ready"))
             for dev_id, d in devices_for(t):
                 if monday and wants(d, "week"):
                     if week_msg:
