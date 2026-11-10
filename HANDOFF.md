@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 10, 2026,
-for app version **v29**.
+for app version **v30**.
 
 ---
 
@@ -134,7 +134,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v29)
+## 6. What the app does today (v30)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -222,6 +222,14 @@ say so once and let him decide.
     – Mon 23 Nov (5 days) · <team>", or "… cancelled leave", within about 5 minutes; one
     alert per person per run. The lead's own changes aren't reported.
   - "Send me a test alert" and "Turn off alerts". Tapping an alert opens its team.
+  - Asking leads (v30): phones only notify after the person taps Allow, so alerts can't
+    be on by default. **Leads only** (Ankit) are asked once, about 1.5 s after their team
+    opens: "Get alerts on this phone?" (Turn on alerts / Not now). If they dismiss it, a
+    card "Know when your team marks leave" with an orange "Turn on alerts" and ✕ stays at
+    the top of the Calendar until alerts are on or the card is closed. Turning alerts off
+    counts as an answer (never asked again). iPhone not on the Home Screen → the Alerts
+    screen's install steps; a blocked phone → the unblock steps. Non-leads are never
+    asked. Flags: `tl:alertAsked`, `tl:alertCardClosed`.
   - Phone check (v27): a small line on the Alerts screen shows the version of the app's
     background part and when an alert last reached this phone. "Last alert: none yet"
     after a test was sent = delivery problem; a recent time but nothing seen = the phone
@@ -362,6 +370,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 10, 2026 | v30 | Leads asked once to turn alerts on (pop-up, then a reminder card on the Calendar); independent review's fixes in |
 | Nov 10, 2026 | v29 | One test button on the Alerts screen ("Show a sample alert now" removed); alerts said to arrive within about 5 minutes. Sender moved to a Google Apps Script timer the same night; its first test alert reached Ankit's phone at 10:27 PM |
 | Nov 10, 2026 | v28 | Alerts screen shown to everyone after the trial on Ankit's phone |
 | Nov 10, 2026 | v27 | Phone check on the Alerts screen (background version, last alert received, sample alert) |

@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v29";
+const APP_VERSION = "v30";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -546,7 +546,7 @@ function watchAllTeams(){
         phase = "pick";
       }
       adoptMyTeams();
-      if(phase === "pick") render();
+      if(phase === "pick" || phase === "app") render();   // inside a team: lead-only prompts need this list
       scheduleDeviceSync();
     },
     err => { net.error = err.code || "unavailable"; render(); }
@@ -1551,9 +1551,10 @@ function render(){
   if(phase === "pick"){ $body.innerHTML = noTeamHTML(); return; }
   if(!roster().length){ $body.innerHTML = teamsBarHTML() + emptyTeamHTML(); return; }
   $body.innerHTML = teamsBarHTML() + segHTML() + chipsHTML()
-    + syncWarningHTML() + mismatchHTML()
+    + syncWarningHTML() + (view === "calendar" ? leadAlertCardHTML() : "") + mismatchHTML()
     + (view === "calendar" ? calendarHTML() : peopleHTML()) + footHTML();
   if(openSheet_) refreshSheet();
+  maybeAskLeadAlerts();
 }
 
 function renderTop(){
@@ -1807,7 +1808,12 @@ function showSheet(html){
   $sheet.innerHTML = sheetHeadHTML()+html;
   $sheet.classList.add("on"); $scrim.classList.add("on");
 }
-function hideSheetNow(){ openSheet_ = null; $sheet.classList.remove("on"); $scrim.classList.remove("on"); }
+function hideSheetNow(){
+  // closing the leads' "Get alerts?" pop-up, however it's closed, brings up the reminder card
+  const was = openSheet_ && openSheet_.type;
+  openSheet_ = null; $sheet.classList.remove("on"); $scrim.classList.remove("on");
+  if(was === "alertask" || was === "alerts") setTimeout(render, 0);
+}
 
 /* ═══════════════════════════════════════════════════════════
    Back navigation
@@ -1836,6 +1842,7 @@ function sheetHTMLFor(x){
   if(x.type === "account")    return accountSheetHTML();
   if(x.type === "confirm")    return confirmSheetHTML();
   if(x.type === "alerts")     return alertsSheetHTML();
+  if(x.type === "alertask")   return alertAskSheetHTML();
   return "";
 }
 
@@ -2284,6 +2291,51 @@ async function syncDevice(force){
   finally { deviceBusy = false; }
 }
 
+/* ── Asking leads to turn alerts on ─────────────────────────────
+   Phones only send notifications after the person taps Allow, so alerts can't
+   be on by default. Leads (Ankit's choice: leads only, November 10, 2026) are
+   asked once with a pop-up after they've picked their name; if they tap
+   "Not now", a small card at the top of the calendar stays until they turn
+   alerts on or close it with ✕. Everyone else turns alerts on from the menu. */
+function leadAlertsPending(){
+  const st = alertsState();
+  // lsGet("alertsOn") === "0" means they turned alerts off themselves: that's an answer
+  return alertsVisible() && phase === "app" && !!meId && teamsILead().length > 0
+         && (st === "off" || st === "install") && lsGet("alertsOn") !== "0";
+}
+let askingAlerts = false;
+function maybeAskLeadAlerts(){
+  if(askingAlerts || lsGet("alertAsked") === "1" || !leadAlertsPending()) return;
+  askingAlerts = true;
+  setTimeout(() => {
+    askingAlerts = false;
+    if(lsGet("alertAsked") === "1" || !leadAlertsPending() || openSheet_ || rangeMode || dragging) return;
+    lsSet("alertAsked", "1");
+    navSheet({ type:"alertask" });
+  }, 1500);
+}
+function alertAskSheetHTML(){
+  const lead = teamsILead();
+  return `<h3>Get alerts on this phone?</h3>
+    <ul class="note" style="margin:8px 0 18px;padding-left:20px">
+      <li>New and cancelled leaves in ${esc(lead.join(", ") || "your team")}</li>
+      <li>Every working morning at 9: who's on leave today (only when someone is)</li>
+      <li>Mondays: who's on leave this week</li></ul>
+    <div class="act">
+      <button class="btn primary" data-act="al-ask-on">Turn on alerts</button>
+      <button class="btn flat" data-act="close">Not now</button></div>`;
+}
+function leadAlertCardHTML(){
+  if(lsGet("alertAsked") !== "1" || lsGet("alertCardClosed") === "1" || !leadAlertsPending()) return "";
+  const lead = teamsILead();
+  return `<div class="card drift" style="position:relative;padding-right:44px">
+    <b>Know when your team marks leave</b>
+    <span>Get an alert within minutes when someone in ${esc(lead.join(", "))} marks or cancels leave.</span>
+    <button data-act="al-ask-on" style="background:var(--o-500)">Turn on alerts</button>
+    <button class="mini" data-act="al-card-x" aria-label="Close" title="Close"
+      style="position:absolute;top:8px;right:8px;background:none;color:var(--ink-3);font-size:16px;padding:6px 8px;margin:0">✕</button></div>`;
+}
+
 async function turnOnAlerts(){
   if(!myTargets().targets.length){ toast("Pick your name first, then turn on alerts"); return; }
   if(!navigator.onLine){ toast("Turning on alerts needs internet"); return; }
@@ -2303,6 +2355,7 @@ async function turnOnAlerts(){
 }
 async function turnOffAlerts(){
   lsSet("alertsOn", "0"); lsSet("deviceSent", "");
+  lsSet("alertAsked", "1"); lsSet("alertCardClosed", "1");   // never ask again after a deliberate no
   try { await setDoc(doc(db, "devices", deviceId()), { off:true, updatedAt:new Date().toISOString() }, { merge:true }); } catch(e){}
   toast("Alerts are off on this phone");
   refreshSheet();
@@ -2623,6 +2676,18 @@ document.addEventListener("click", async e => {
     return;
   }
   if(act === "al-on"){ await turnOnAlerts(); return; }
+  if(act === "al-ask-on"){
+    const fromPopup = !!(openSheet_ && openSheet_.type === "alertask");
+    const toAlerts = () => fromPopup ? navReplace({ screen:"sheet", s:{ type:"alerts" } }) : navSheet({ type:"alerts" });
+    // iPhone not on the Home Screen yet: the Alerts screen explains how
+    if(alertsState() === "install"){ toAlerts(); return; }
+    if(fromPopup) closeSheet();
+    await turnOnAlerts(); render();
+    // blocked, or it didn't work: the Alerts screen shows the steps
+    if(alertsState() !== "on") navSheet({ type:"alerts" });
+    return;
+  }
+  if(act === "al-card-x"){ lsSet("alertCardClosed", "1"); render(); return; }
   if(act === "al-off"){ await turnOffAlerts(); return; }
   if(act === "al-test"){ await requestTestAlert(); return; }
   if(act === "cf-ok"){

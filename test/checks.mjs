@@ -102,3 +102,32 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   known=[]; localStorage.setItem("tl:meId","me1"); localStorage.setItem("tl:left","[]");
   ok(teamsILead().join()==="Alpha","lead alerts offered only for teams this person leads");
 }
+
+// v30: leads are asked to turn alerts on (pop-up once, then a card); others aren't
+{ localStorage.setItem("tl:alertsBeta","1");
+  allTeams=[{id:"tA",name:"Alpha",leadId:"me1",members:[{id:"me1",name:"Me"}],size:1},{id:"tB",name:"Beta",leadId:"zz",members:[{id:"me1",name:"Me"}],size:1}];
+  known=[]; localStorage.setItem("tl:meId","me1"); localStorage.setItem("tl:left","[]"); meId="me1"; phase="app";
+  const realState=alertsState; alertsState=()=>"off";
+  ok(leadAlertsPending()===true,"a lead without alerts is asked");
+  ok(/Get alerts on this phone/.test(alertAskSheetHTML()) && /New and cancelled leaves in Alpha/.test(alertAskSheetHTML()),"pop-up names the team they lead");
+  localStorage.setItem("tl:alertAsked",""); ok(leadAlertCardHTML()==="","no card before the pop-up was shown");
+  localStorage.setItem("tl:alertAsked","1"); ok(/Know when your team marks leave/.test(leadAlertCardHTML()),"card after 'Not now'");
+  localStorage.setItem("tl:alertCardClosed","1"); ok(leadAlertCardHTML()==="","card gone after closing it");
+  localStorage.setItem("tl:alertCardClosed","");
+  alertsState=()=>"on"; ok(leadAlertCardHTML()==="" && !leadAlertsPending(),"nothing once alerts are on");
+  alertsState=()=>"unsupported"; ok(!leadAlertsPending(),"not asked where the phone can't do alerts");
+  alertsState=()=>"off"; allTeams[0].leadId="zz"; ok(!leadAlertsPending() && leadAlertCardHTML()==="","someone who leads no team is never asked");
+  alertsState=realState; }
+
+// v30 review fixes
+{ localStorage.setItem("tl:alertsBeta","1"); allTeams[0].leadId="me1"; meId="me1"; phase="app";
+  const realState=alertsState; alertsState=()=>"off";
+  localStorage.setItem("tl:alertsOn","0"); ok(!leadAlertsPending(),"a lead who turned alerts off isn't asked or nagged");
+  localStorage.setItem("tl:alertsOn",""); ok(leadAlertsPending(),"a lead who never answered is asked");
+  localStorage.setItem("tl:alertAsked",""); let pushed=0; const realNav=navSheet; navSheet=()=>{pushed++;};
+  const realST=globalThis.setTimeout; globalThis.setTimeout=f=>{ f(); return 0; };
+  openSheet_={type:"manage"}; askingAlerts=false; maybeAskLeadAlerts(); ok(pushed===0 && localStorage.getItem("tl:alertAsked")!=="1","no pop-up over another open screen");
+  openSheet_=null; rangeMode=true; askingAlerts=false; maybeAskLeadAlerts(); ok(pushed===0,"no pop-up during Select range");
+  rangeMode=false; askingAlerts=false; maybeAskLeadAlerts(); ok(pushed===1 && localStorage.getItem("tl:alertAsked")==="1","pop-up once when the screen is free");
+  askingAlerts=false; maybeAskLeadAlerts(); ok(pushed===1,"never a second pop-up");
+  globalThis.setTimeout=realST; navSheet=realNav; alertsState=realState; }
