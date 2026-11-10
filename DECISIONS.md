@@ -7,6 +7,7 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Nov 10, 2026 | Alerts switched on for everyone (v28), straight after the test alert reached Ankit's phone. | Ankit's choice ("switch on now"), rather than waiting for the first 9 AM alert. |
 | Nov 10, 2026 | Phone alerts, delivered free through GitHub's scheduler and Firebase messaging (about 15 minutes' delay for change alerts), not Firebase's paid plan. | Ankit's choice. |
 | Nov 10, 2026 | New and cancelled leaves alert the team lead only. | Ankit's choice. |
 | Nov 10, 2026 | Morning alert at 9 AM IST, Monday–Friday and the 1st, 3rd and 5th Saturdays, and none when nobody's on leave. | Ankit's choice. |

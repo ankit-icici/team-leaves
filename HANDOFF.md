@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 10, 2026,
-for app version **v27**.
+for app version **v28**.
 
 ---
 
@@ -134,7 +134,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v27)
+## 6. What the app does today (v28)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -210,7 +210,7 @@ say so once and let him decide.
   (exact; keeps removed people's dates), "Only this", and "Into <current team>" for
   teams no longer here. Never removes anyone from a roster.
 
-**Alerts (v26; on trial on Ankit's phone, see Open items)**
+**Alerts (v26; for everyone since v28)**
 - Phone notifications, chosen per phone under your name → Alerts (each one on/off):
   - **Who's on leave today:** "On leave today (3) · <team>" / "Asha, Bilal, Chitra",
     9 AM IST, Monday–Friday and the 1st, 3rd and 5th Saturdays, only when someone's on
@@ -314,11 +314,16 @@ switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
 
-1. **Alerts on trial:** `ALERTS_FOR_ALL = false` in `index.html`, so only phones that
-   opened `#alerts` see the screen (Ankit's first). On Ankit's word: set it to `true`,
-   bump the version and release, then send the team a short WhatsApp note on turning
-   alerts on (iPhone: Home Screen first).
-2. The sender's change alerts come within about 15 minutes, not instantly (GitHub's free
+1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
+   person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
+   screen again (e.g. for a new trial), set it back to `false`: only phones that opened
+   the link with `#alerts`, or tapped the version 5 times, then see it.
+2. Android shows the web address ("Leaves · ankit-icici.github.io") on every web-app
+   notification; no app can remove it. Only a custom domain would replace it, and moving
+   address makes every phone start over (reinstall, pick team and name, turn alerts on).
+   Claude recommended leaving it; Ankit hasn't decided. A free tweak offered: short name
+   "Team Leaves" instead of "Leaves".
+3. The sender's change alerts come within about 15 minutes, not instantly (GitHub's free
    scheduler; it can also run late at busy times). Instant would need Firebase's paid
    Blaze plan (card on file); Ankit chose free.
 
@@ -344,6 +349,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 10, 2026 | v28 | Alerts screen shown to everyone after the trial on Ankit's phone |
 | Nov 10, 2026 | v27 | Phone check on the Alerts screen (background version, last alert received, sample alert) |
 | Nov 10, 2026 | v26 | Phone alerts (morning, Monday week ahead, lead's new/cancelled leaves), on trial on Ankit's phone; sender on GitHub Actions with keyless Google sign-in; `devices` rule published; independent review's findings fixed before release |
 | Oct 29, 2026 | v25 | Name button hidden on the team list (it never worked there); "Which one are you?" right after joining; version shown on the team list; phones update themselves; page always revalidated |
