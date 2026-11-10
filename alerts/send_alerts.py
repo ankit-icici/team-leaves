@@ -1,13 +1,13 @@
 """Team Leaves alert sender.
 
-Runs on GitHub Actions (.github/workflows/alerts.yml) every 15 minutes, plus once
-just before 9 AM IST. Each run:
+Runs on GitHub Actions (.github/workflows/alerts.yml) every 15 minutes (at :07,
+:22, :37, :52, away from GitHub's busiest minutes), plus 8:53 AM IST. Each run:
 
   1. New and cancelled leaves -> the team's lead. Compares every team's upcoming
      dates with the last run (kept in Firestore meta/alerts) and sends one alert
      per person who changed, e.g. "Bilal marked leave / Thu 19 - Mon 23 Nov
      (5 days) . Brand Partnerships". The lead's own changes aren't reported.
-  2. From 8:55 AM IST, once a day, on working days only (Mon-Fri and the 1st,
+  2. From 8:50 AM IST, once a day, on working days only (Mon-Fri and the 1st,
      3rd and 5th Saturdays): "On leave today (3) . <team>" to everyone who wants
      it. On Mondays, "On leave this week (16-21 Nov)" instead, for those who want
      that. Nothing is sent when nobody is on leave.
@@ -37,7 +37,8 @@ BASE = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(defau
 FCM = f"https://fcm.googleapis.com/v1/projects/{PROJECT}/messages:send"
 APP_URL = "https://ankit-icici.github.io/team-leaves/"
 IST = dt.timezone(dt.timedelta(hours=5, minutes=30))
-MORNING_FROM = dt.time(8, 55)     # the morning alert goes on the first run after this
+MORNING_FROM = dt.time(8, 50)     # the morning alert goes on the first run after this
+                                  # (the 8:53 run, or the next one if GitHub is late)
 MORNING_UNTIL = dt.time(12, 0)    # and not at all if every run before noon was missed
 
 DRY = os.environ.get("DRY_RUN") == "1"

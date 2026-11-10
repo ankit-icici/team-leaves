@@ -231,7 +231,7 @@ say so once and let him decide.
   Blocked phones get click-by-click steps to allow notifications.
 - How it works: the app gets a push token from Firebase Cloud Messaging (default key,
   the app's own `sw.js`) and writes `devices/{id}`. `alerts/send_alerts.py` runs on
-  GitHub Actions every 15 minutes and at 8:55 AM IST: it compares each team's upcoming
+  GitHub Actions every 15 minutes (at :07, :22, :37, :52) and at 8:53 AM IST: it compares each team's upcoming
   dates with the last run (`meta/alerts`), sends change alerts, sends the morning ones
   once a day (recorded before sending, so a failed run never repeats them), sends test
   alerts, retries failed sends once, marks unreachable phones `dead` (a new token
@@ -314,9 +314,9 @@ switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
 
-0. **Check first:** GitHub's automatic runs of the Alerts workflow had not started yet at
-   21:21 IST on November 10, 2026 (only hand-started runs, both successful). New schedules
-   can take a while. Confirm with `gh run list --workflow alerts.yml --event schedule`
+0. **Check first:** the first schedule (every 15 minutes on the quarter-hours) never
+   started on November 10, 2026: GitHub delays or drops scheduled runs at its busiest
+   minutes. Moved to :07, :22, :37, :52 and 8:53 AM IST the same evening. Confirm with `gh run list --workflow alerts.yml --event schedule`
    that runs come every ~15 minutes and that the 8:55 AM IST one sent the morning
    alerts; if none have run, look at GitHub → Actions → Alerts (is it enabled?).
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each

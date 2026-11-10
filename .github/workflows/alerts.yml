@@ -1,6 +1,8 @@
 # Team Leaves alerts: runs alerts/send_alerts.py on GitHub's free scheduler.
-# Every 15 minutes for new and cancelled leaves; the 8:55 AM IST run (03:25 UTC)
-# makes the morning alert punctual, since GitHub can start scheduled runs late.
+# Every 15 minutes for new and cancelled leaves, plus 8:53 AM IST (03:23 UTC) for
+# the morning alert. GitHub delays or even drops scheduled runs at its busiest
+# minutes (the hour and the quarter-hours), so these run at :07, :22, :37 and :52.
+# The first schedule (on the quarter-hours, Nov 10, 2026) never started.
 #
 # Google sign-in is keyless: GitHub proves which repo is asking (OIDC), and
 # Google lets only this repo act as the service account below (Workload
@@ -9,8 +11,8 @@ name: Alerts
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
-    - cron: "25 3 * * *"
+    - cron: "7,22,37,52 * * * *"
+    - cron: "23 3 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
