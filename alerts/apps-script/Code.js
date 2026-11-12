@@ -115,7 +115,7 @@ function saveState_(state, dry) { if (!dry) patchDoc_("meta/alerts", { state: JS
 
 /* One failed send never stops the run (that would make the next run repeat
    everything): retry once on a busy server, mark unreachable phones, log the rest. */
-function send_(dev, title, body, tag, url, log, dry) {
+function send_(dev, title, body, tag, url, log, dry, retried) {
   log.push("  -> phone " + dev[0].slice(0, 8) + ": " + title + " | " + body.replace(/\n/g, " / "));
   if (dry) return;
   var msg = { message: { token: dev[1].token, webpush: {
@@ -126,9 +126,21 @@ function send_(dev, title, body, tag, url, log, dry) {
       var r = call_(FCM_URL, "post", msg);
       if (r.code < 300) return;
       if (r.code === 404 || /UNREGISTERED/.test(r.text) || (/INVALID_ARGUMENT/.test(r.text) && /token/i.test(r.text))) {
-        log.push("     phone no longer reachable; marked as such");
-        try { patchDoc_("devices/" + dev[0], { dead: true, deadAt: new Date().toISOString() }); }
-        catch (e2) { log.push("     couldn't mark it: " + e2); }
+        log.push("     phone no longer reachable (HTTP " + r.code + " " + r.text.replace(/\s+/g, " ").slice(0, 160) + ")");
+        try {
+          var cur = getDoc_("devices/" + dev[0]);
+          if (!cur) { log.push("     the phone's record is gone; nothing to mark"); return; }
+          if (cur.token && cur.token !== dev[1].token && !retried && !cur.off) {
+            // the phone renewed its address meanwhile: send this alert there instead
+            log.push("     the phone has a new address; sending there");
+            send_([dev[0], cur], title, body, tag, url, log, dry, true);
+            return;
+          }
+          if (cur.token === dev[1].token) {
+            patchDoc_("devices/" + dev[0], { dead: true, deadAt: new Date().toISOString() });
+            log.push("     marked unreachable until the phone renews its address");
+          }
+        } catch (e2) { log.push("     couldn't mark it: " + e2); }
         return;
       }
       if (attempt === 1 && (r.code === 429 || r.code >= 500)) { Utilities.sleep(3000); continue; }

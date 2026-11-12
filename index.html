@@ -272,7 +272,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, getDoc, getDocs, onSnapshot, setDoc, runTransaction, deleteField
+  collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot, setDoc, runTransaction, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const CONFIGURED = !String(firebaseConfig.apiKey).startsWith("PASTE_");
@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v31";
+const APP_VERSION = "v32";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -1551,10 +1551,11 @@ function render(){
   if(phase === "pick"){ $body.innerHTML = noTeamHTML(); return; }
   if(!roster().length){ $body.innerHTML = teamsBarHTML() + emptyTeamHTML(); return; }
   $body.innerHTML = teamsBarHTML() + segHTML() + chipsHTML()
-    + syncWarningHTML() + (view === "calendar" ? leadAlertCardHTML() : "") + mismatchHTML()
+    + syncWarningHTML() + alertsStoppedCardHTML() + (view === "calendar" ? leadAlertCardHTML() : "") + mismatchHTML()
     + (view === "calendar" ? calendarHTML() : peopleHTML()) + footHTML();
   if(openSheet_) refreshSheet();
   maybeAskLeadAlerts();
+  checkAlertsStopped();
 }
 
 function renderTop(){
@@ -2276,30 +2277,97 @@ async function pushToken(){
   }
 }
 
-/* Keep this phone's record in step with its teams, names and choices. Writes only
-   when something changed, so opening the app costs nothing extra. */
-let deviceBusy = false, deviceTimer = null;
+/* A brand-new alert address, used only when the person taps something (turning
+   alerts on, "Send me a test alert", or "Turn back on" after the sender found
+   the phone unreachable): taps are when phones, iPhones especially, reliably
+   allow a new registration, and a working phone is never touched in the
+   background. Google can stop accepting an address (it happened to Ankit's phone
+   overnight on Nov 11–12, 2026) and the messaging code keeps handing back its
+   saved copy, while its own deleteToken fails for an address Google already
+   dropped. So the phone's push registration is removed directly; getToken then
+   sees it gone and makes a new address. Retried, since iPhone's first request
+   often fails. A "new" address equal to the old one counts as a failure. */
+async function freshPushToken(){
+  const m = await import(MESSAGING_SDK);
+  if(!(await m.isSupported())) throw new Error("unsupported");
+  const reg = await navigator.serviceWorker.ready, msg = m.getMessaging();
+  const before = lsGet("deviceToken") || "";
+  const sub = await reg.pushManager.getSubscription();
+  if(sub && !(await sub.unsubscribe())) throw new Error("couldn't release the old alert address");
+  for(let i = 0; i < 3; i++){
+    try {
+      const t = await m.getToken(msg, { serviceWorkerRegistration: reg });
+      if(t && t !== before) return t;
+    } catch(e){}
+    await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+  }
+  throw new Error("couldn't get a new alert address");
+}
+
+/* Keep this phone's record in step with its teams, names and choices: writes
+   only when something changed. With `renew` (a tap) it gets a fresh address and
+   clears the sender's "unreachable" mark; otherwise it never touches that mark,
+   so a phone the sender gave up on stays marked until it really has a new
+   address. Runs one at a time: a second request waits instead of being dropped. */
+let deviceTimer = null, deviceChain = Promise.resolve();
 function scheduleDeviceSync(){
   if(deviceTimer) clearTimeout(deviceTimer);
   deviceTimer = setTimeout(() => { deviceTimer = null; syncDevice(false); }, 2000);
 }
-async function syncDevice(force){
-  if(!CONFIGURED || !db || alertsState() !== "on" || deviceBusy) return false;
-  deviceBusy = true;
+function syncDevice(force, renew){
+  const run = deviceChain.then(() => doSyncDevice(force, renew));
+  deviceChain = run.catch(() => {});
+  return run;
+}
+async function doSyncDevice(force, renew){
+  if(!CONFIGURED || !db || alertsState() !== "on") return false;
   try {
-    const token = await pushToken();
+    const token = renew ? await freshPushToken() : await pushToken();
     const subs = myTargets().targets.map(t => ({ tid:t.tid, mid:t.mid }));
     const prefs = alertPrefs();
     const sig = JSON.stringify([token, subs, prefs]);
-    if(!force && sig === lsGet("deviceSent")) return true;
-    // dead:false — if the sender once found this phone unreachable, a new token revives it
-    await setDoc(doc(db, "devices", deviceId()), { token, subs, prefs, off:false, dead:false,
+    if(!force && !renew && sig === lsGet("deviceSent")) return true;
+    const rec = { token, subs, prefs, off:false,
       platform: isIOS() ? "ios" : (/Android/.test(navigator.userAgent) ? "android" : "other"),
-      updatedAt: new Date().toISOString() }, { merge:true });
-    lsSet("deviceSent", sig);
+      updatedAt: new Date().toISOString() };
+    if(renew) rec.dead = false;   // a genuinely new address: reachable again
+    await setDoc(doc(db, "devices", deviceId()), rec, { merge:true });
+    lsSet("deviceSent", sig); lsSet("deviceToken", token);
+    if(renew){ alertsStopped = false; render(); }
     return true;
   } catch(e){ return false; }
-  finally { deviceBusy = false; }
+}
+
+/* Did the sender find this phone unreachable? Asked of the server (never the
+   phone's saved copy) when the app opens and whenever it comes back to the front,
+   at most every 10 minutes; if so, a card offers "Turn back on" (a tap). */
+let alertsStopped = false, stoppedCheckedAt = 0;
+async function readStopped(){
+  const snap = await getDocFromServer(doc(db, "devices", deviceId()));
+  return !!(snap.exists() && snap.data().dead === true && !snap.data().off);
+}
+async function checkAlertsStopped(){
+  if(!CONFIGURED || !db || alertsState() !== "on" || Date.now() - stoppedCheckedAt < 600000) return;
+  stoppedCheckedAt = Date.now();
+  try {
+    const was = alertsStopped;
+    alertsStopped = await readStopped();
+    if(alertsStopped !== was) render();
+  } catch(e){ stoppedCheckedAt = 0; }   // offline: try again on the next render
+}
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible"){ stoppedCheckedAt = 0; checkAlertsStopped(); }
+});
+function alertsStoppedCardHTML(){
+  if(!alertsStopped || alertsState() !== "on") return "";
+  return `<div class="card drift"><b>Alerts stopped on this phone</b>
+    <span>Your phone stopped accepting Team Leaves alerts. One tap turns them back on.</span>
+    <button data-act="al-revive" style="background:var(--o-500)">Turn back on</button></div>`;
+}
+async function reviveAlerts(){
+  toast("Turning alerts back on…");
+  if(await syncDevice(true, true)) toast("Alerts are back on");
+  else toast("Couldn't turn alerts back on. Please try again in a moment.");
 }
 
 /* ── Asking leads to turn alerts on ─────────────────────────────
@@ -2359,7 +2427,7 @@ async function turnOnAlerts(){
   }
   lsSet("alertsOn", "1");
   toast("Turning on alerts…");
-  const ok = await syncDevice(true);
+  const ok = await syncDevice(true, true);
   if(!ok){ lsSet("alertsOn", "0"); toast("Couldn't turn on alerts. Check your connection and try again."); }
   else toast("Alerts are on");
   refreshSheet(); renderTop();
@@ -2373,6 +2441,11 @@ async function turnOffAlerts(){
 }
 async function requestTestAlert(){
   try {
+    // renew the address only if the sender found this phone unreachable — renewing
+    // a working phone could break it if the new address can't be fetched
+    let dead = false;
+    try { dead = await readStopped(); } catch(e){}
+    if(!(await syncDevice(true, dead))){ toast("Couldn't update alerts on this phone. Please try again in a moment."); return; }
     await setDoc(doc(db, "devices", deviceId()), { testAt:new Date().toISOString() }, { merge:true });
     toast("Test alert on its way — it arrives within about 5 minutes");
   } catch(e){ toast("Couldn't ask for a test. Check your connection."); }
@@ -2704,6 +2777,7 @@ document.addEventListener("click", async e => {
   if(act === "al-card-x"){ lsSet("alertCardClosed", "1"); render(); return; }
   if(act === "al-off"){ await turnOffAlerts(); return; }
   if(act === "al-test"){ await requestTestAlert(); return; }
+  if(act === "al-revive"){ await reviveAlerts(); return; }
   if(act === "cf-ok"){
     if(confirmAsk && confirmAsk.resolve){ const r = confirmAsk.resolve; confirmAsk.resolve = null; r(true); }
     return;

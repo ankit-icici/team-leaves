@@ -2,7 +2,7 @@
    Caches the app itself so it opens with no signal.
    Your leave DATA is handled separately by Firestore's own offline cache. */
 
-const CACHE = "team-leaves-v31";
+const CACHE = "team-leaves-v32";
 const META = "team-leaves-meta";   // survives version changes: the last alert received
 const SHELL = ["./", "./index.html", "./manifest.json", "./mulish.woff2",
                 "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];

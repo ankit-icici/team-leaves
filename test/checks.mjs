@@ -147,3 +147,4 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   ok(teamsILead().join()==="Xray" && alertsVisible(),"lead of the open team sees Alerts before the team list arrives");
   teamDoc.leadId="other"; ok(!alertsVisible(),"…and not once they've handed the team over");
   ok(/Alerts are for team leads/.test(alertsSheetHTML()),"Alerts screen opened after handing over says so, no broken line"); }
+

@@ -1,8 +1,8 @@
 # Team Leaves: handoff
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
-first, then this file, then `DECISIONS.md`. Last brought up to date: November 10, 2026,
-for app version **v31**.
+first, then this file, then `DECISIONS.md`. Last brought up to date: November 12, 2026,
+for app version **v32**.
 
 ---
 
@@ -125,8 +125,9 @@ and `list` teams, so:
 - "only the lead manages the roster" and "you only edit your own leaves" are enforced in
   the app, not on the server. The server forbids only deletes.
 
-Alert records (`devices`) are the exception: phones can write their own but never read
-any, so push tokens aren't exposed. Only the sender reads them. Anyone could still
+Alert records (`devices`) are the exception: phones can write their own and read back
+only that one record by its hard-to-guess id (since v32, to see whether the sender
+marked it unreachable); they can never list records, so push tokens aren't exposed. Only the sender reads them. Anyone could still
 register a phone for any team's alerts, which tells them no more than the app already
 shows.
 
@@ -134,7 +135,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v31)
+## 6. What the app does today (v32)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -227,6 +228,17 @@ say so once and let him decide.
     – Mon 23 Nov (5 days) · <team>", or "… cancelled leave", within about 5 minutes; one
     alert per person per run. The lead's own changes aren't reported.
   - "Send me a test alert" and "Turn off alerts". Tapping an alert opens its team.
+  - **Alerts stopped (v32).** Google sometimes stops accepting a phone's alert address
+    (it did for Ankit's Pixel at 9:02 AM on November 12, 2026, so that morning's alert
+    never arrived); the sender then marks the phone `dead`. The app asks the server (not
+    its saved copy) when it opens and whenever it comes back to the front, at most every
+    10 minutes, and if dead shows a card "Alerts stopped on this phone" with an orange
+    "Turn back on". The tap releases the old browser push subscription and gets a new
+    address (Firebase's own `deleteToken` fails on an address Google already dropped,
+    and `getToken` alone returns the cached dead one), then clears `dead`. Renewal
+    happens only on a tap (Turn back on, turning alerts on, or a test while the phone
+    is marked dead), never in the background, so a working phone is never put at risk.
+    Not yet proven on iPhone: if an iPhone lead's alerts stop, check after their tap.
   - Asking leads (v30): phones only notify after the person taps Allow, so alerts can't
     be on by default. **Leads only** (Ankit) are asked once, about 1.5 s after their team
     opens: "Get alerts on this phone?" (Turn on alerts / Not now). If they dismiss it, a
@@ -258,7 +270,10 @@ say so once and let him decide.
   other phone records aren't read). Phone records are read only when there's
   something to send: every read counts against Spark's 50,000 reads a day. Year
   documents are fetched together (`UrlFetchApp.fetchAll`). Retries a failed send
-  once; marks unreachable phones `dead` (a new token revives them); skips people no
+  once; when Google rejects an address, re-reads that phone's record: a new address
+  (the phone renewed meanwhile) gets the alert resent once, unless alerts are off;
+  the same address is marked `dead` (the phone's "Turn back on" revives it); the
+  log line shows Google's code and reply; skips people no
   longer on a team; one alert per push token. A team's first run and anyone newly
   added are recorded silently.
 - Change the sender: edit `alerts/apps-script/`, run `python3 test/run-checks.py`
@@ -374,6 +389,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 12, 2026 | v32 | "Alerts stopped on this phone · Turn back on" card and tap-only renewal of a phone's alert address; phones may read their own alert record; sender resends to a renewed address and logs Google's reply. Made after Ankit's 9 AM alert didn't arrive (Google rejected his phone's address at 9:02). Independent review's fixes in |
 | Nov 10, 2026 | v31 | Alerts for team leads only: menu item only for leads, every alert only to the team's lead; independent review's fixes in |
 | Nov 10, 2026 | v30 | Leads asked once to turn alerts on (pop-up, then a reminder card on the Calendar); independent review's fixes in |
 | Nov 10, 2026 | v29 | One test button on the Alerts screen ("Show a sample alert now" removed); alerts said to arrive within about 5 minutes. Sender moved to a Google Apps Script timer the same night; its first test alert reached Ankit's phone at 10:27 PM |

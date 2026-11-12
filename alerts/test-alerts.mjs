@@ -193,6 +193,20 @@ db["devices/pb2"] = { token: "TOKEN-B2", subs: [{ tid: "A", mid: "b" }, { tid: "
 s = run(at(2026, 11, 19, 9, 1));
 ok(!s.some(x => x.token === "TOKEN-LEAD" && /Alpha/.test(x.title + x.body)), "a lead who handed over gets nothing more about that team");
 ok(!s.some(x => x.token === "TOKEN-B2"), "a member of two teams who leads neither gets nothing");
+// a phone that renewed its address while the send was failing isn't marked unreachable
+db["teams/R"] = { name: "Rho", leadId: "r", members: [{ id: "r", name: "Rhea Sen" }] };
+db["teams/R/years/2026"] = { days: { r: { "2026-11-20": "full" } } };
+db["devices/pR"] = { token: "TOKEN-OLD-R", subs: [{ tid: "R", mid: "r" }], prefs: {}, updatedAt: "1" };
+dead.add("TOKEN-OLD-R");
+const realFetch = G.UrlFetchApp.fetch;
+G.UrlFetchApp.fetch = (url, opt) => {   // the phone renews just as the send to its old address fails
+  if (url.startsWith("https://fcm.googleapis.com/") && /TOKEN-OLD-R/.test((opt || {}).payload || "")) db["devices/pR"].token = "TOKEN-NEW-R";
+  return realFetch(url, opt);
+};
+s = run(at(2026, 11, 20, 9, 1));
+ok(db["devices/pR"].dead !== true, "a phone that renewed its address in the meantime isn't marked unreachable");
+ok(s.some(x => x.token === "TOKEN-NEW-R" && /On leave today/.test(x.title)), "…and the morning alert is resent to its new address");
+G.UrlFetchApp.fetch = realFetch;
 sent.length = 0; G.runAlerts_({ nowMs: at(2026, 11, 17, 9, 5), dry: true });
 ok(sent.length === 0, "dry run sends nothing");
 

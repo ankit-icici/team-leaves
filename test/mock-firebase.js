@@ -48,6 +48,7 @@ export const collection = (db, ...p) => ({ path:p.join("/"), isCol:true });
 export const doc = (db, ...p) => ({ path:p.join("/"), isCol:false });
 export const deleteField = () => DEL;
 export const getDoc = async ref => snapDoc(ref.path);
+export const getDocFromServer = async ref => snapDoc(ref.path);
 export const getDocs = async ref => snapCol(ref.path);
 export function onSnapshot(ref, a, b){
   const cb = typeof a === "function" ? a : b;

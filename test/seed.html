@@ -1,10 +1,14 @@
 <script type="module">
 import "./mock-firebase.js";
 // alerts: pretend this browser can show notifications and the user allows them
-try { let perm = "default";
+try { // remembered across reloads, as a real phone remembers "Allow"
+  let perm = localStorage.getItem("mock:perm") || "default";
   Object.defineProperty(window.Notification || (window.Notification = function(){}), "permission", { get: () => perm, configurable:true });
-  window.Notification.requestPermission = async () => (perm = "granted");
+  window.Notification.requestPermission = async () => { localStorage.setItem("mock:perm", "granted"); return (perm = "granted"); };
 } catch(e){}
+// the phone's push registration: removing it is what makes getToken issue a new address
+try { PushManager.prototype.getSubscription = async function(){
+  return { unsubscribe: async () => { localStorage.setItem("mock:unsub", "1"); return true; } }; }; } catch(e){}
 const M = window.__mock, y = new Date().getFullYear(), pad = n => String(n).padStart(2,"0");
 const d = n => { const t = new Date(); t.setDate(t.getDate()+n); return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate()); };
 const P = (id,name,color) => ({id,name,color});
