@@ -146,7 +146,7 @@
   .btn.ghost{background:var(--o-050);color:var(--o-700);border:1px solid var(--o-100)}
   .btn.danger{background:#FFF1F2;color:#9F1239;border:1px solid #FFE0E3}
   .btn.flat{background:var(--paper);color:var(--ink-2);border:1px solid var(--line)}
-  .btn[disabled]{opacity:.45;pointer-events:none}
+  .btn[disabled], button[disabled]{opacity:.45;pointer-events:none}
   .out-list{margin:0 0 18px;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
   .out-list li{display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:600}
   .out-list .av{width:28px;height:28px;font-size:11px}
@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v32";
+const APP_VERSION = "v33";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -2440,6 +2440,7 @@ async function turnOffAlerts(){
   refreshSheet();
 }
 async function requestTestAlert(){
+  toast("Sending a test alert…");
   try {
     // renew the address only if the sender found this phone unreachable — renewing
     // a working phone could break it if the new address can't be fetched
@@ -2566,6 +2567,23 @@ document.addEventListener("click", async e => {
   const el = e.target.closest("[data-act]");
   if(!el) return;
   const act = el.getAttribute("data-act");
+
+  // Alert buttons talk to the phone and the server, which can take several
+  // seconds: show at once that the tap worked, and ignore repeat taps meanwhile.
+  if(ALERT_BUSY_LABEL[act]){
+    if(alertBusy) return;
+    alertBusy = true;
+    const label = el.textContent;
+    el.textContent = ALERT_BUSY_LABEL[act];
+    el.setAttribute("disabled", "");
+    // a write made offline only finishes once back online: free the buttons after 20 s
+    try { await Promise.race([alertAction(act, el), new Promise(r => setTimeout(r, 20000))]); }
+    finally {
+      alertBusy = false;
+      if(el.isConnected){ el.textContent = label; el.removeAttribute("disabled"); }
+    }
+    return;
+  }
 
   if(act === "view"){ view = el.getAttribute("data-v"); render(); return; }
   if(act === "filter"){ filter = el.getAttribute("data-id"); render(); return; }
@@ -2762,6 +2780,12 @@ document.addEventListener("click", async e => {
     if(alertsState() === "on") syncDevice(false);
     return;
   }
+});
+
+const ALERT_BUSY_LABEL = { "al-on":"Turning on…", "al-ask-on":"Turning on…", "al-off":"Turning off…",
+                           "al-test":"Sending…", "al-revive":"Turning back on…" };
+let alertBusy = false;
+async function alertAction(act, el){
   if(act === "al-on"){ await turnOnAlerts(); return; }
   if(act === "al-ask-on"){
     const fromPopup = !!(openSheet_ && openSheet_.type === "alertask");
@@ -2774,10 +2798,16 @@ document.addEventListener("click", async e => {
     if(alertsState() !== "on") navSheet({ type:"alerts" });
     return;
   }
-  if(act === "al-card-x"){ lsSet("alertCardClosed", "1"); render(); return; }
   if(act === "al-off"){ await turnOffAlerts(); return; }
   if(act === "al-test"){ await requestTestAlert(); return; }
   if(act === "al-revive"){ await reviveAlerts(); return; }
+}
+
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]");
+  if(!el) return;
+  const act = el.getAttribute("data-act");
+  if(act === "al-card-x"){ lsSet("alertCardClosed", "1"); render(); return; }
   if(act === "cf-ok"){
     if(confirmAsk && confirmAsk.resolve){ const r = confirmAsk.resolve; confirmAsk.resolve = null; r(true); }
     return;

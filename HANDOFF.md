@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 12, 2026,
-for app version **v32**.
+for app version **v33**.
 
 ---
 
@@ -135,7 +135,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v32)
+## 6. What the app does today (v33)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -238,7 +238,13 @@ say so once and let him decide.
     and `getToken` alone returns the cached dead one), then clears `dead`. Renewal
     happens only on a tap (Turn back on, turning alerts on, or a test while the phone
     is marked dead), never in the background, so a working phone is never put at risk.
-    Not yet proven on iPhone: if an iPhone lead's alerts stop, check after their tap.
+    Proven on Ankit's Pixel on November 12, 2026: after "Turn back on" and a test, the
+    test alert arrived at 2:37 PM. Not yet proven on iPhone: if an iPhone lead's alerts
+    stop, check after their tap.
+  - Alert buttons (turn on, turn off, test, turn back on, the lead pop-up's turn on)
+    change to "Turning on…", "Sending…" etc. and ignore repeat taps until done (v33):
+    renewing an address takes a few seconds and Ankit tapped the test button several
+    times when nothing seemed to happen.
   - Asking leads (v30): phones only notify after the person taps Allow, so alerts can't
     be on by default. **Leads only** (Ankit) are asked once, about 1.5 s after their team
     opens: "Get alerts on this phone?" (Turn on alerts / Not now). If they dismiss it, a
@@ -389,6 +395,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 12, 2026 | v33 | Alert buttons show at once that a tap worked ("Sending…", "Turning on…") and ignore repeat taps until done |
 | Nov 12, 2026 | v32 | "Alerts stopped on this phone · Turn back on" card and tap-only renewal of a phone's alert address; phones may read their own alert record; sender resends to a renewed address and logs Google's reply. Made after Ankit's 9 AM alert didn't arrive (Google rejected his phone's address at 9:02). Independent review's fixes in |
 | Nov 10, 2026 | v31 | Alerts for team leads only: menu item only for leads, every alert only to the team's lead; independent review's fixes in |
 | Nov 10, 2026 | v30 | Leads asked once to turn alerts on (pop-up, then a reminder card on the Calendar); independent review's fixes in |
