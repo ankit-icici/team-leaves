@@ -8,7 +8,9 @@ try { // remembered across reloads, as a real phone remembers "Allow"
 } catch(e){}
 // the phone's push registration: removing it is what makes getToken issue a new address
 try { PushManager.prototype.getSubscription = async function(){
-  return { unsubscribe: async () => { localStorage.setItem("mock:unsub", "1"); return true; } }; }; } catch(e){}
+  const ep = "https://push.example/" + (localStorage.getItem("mock:ep") || "0");
+  return { endpoint: ep, unsubscribe: async () => { localStorage.setItem("mock:unsub", "1");
+    localStorage.setItem("mock:ep", String(+(localStorage.getItem("mock:ep") || "0") + 1)); return true; } }; }; } catch(e){}
 const M = window.__mock, y = new Date().getFullYear(), pad = n => String(n).padStart(2,"0");
 const d = n => { const t = new Date(); t.setDate(t.getDate()+n); return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate()); };
 const P = (id,name,color) => ({id,name,color});

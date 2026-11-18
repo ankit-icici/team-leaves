@@ -6,11 +6,13 @@ export const isSupported = async () => true;
 export const getMessaging = () => ({});
 export const getToken = async () => {
   let t = localStorage.getItem("mock:token");
-  if (!t || localStorage.getItem("mock:unsub") === "1") {
+  // mock:sameToken=1: Google hands back the same address string after a new registration
+  if (!t || (localStorage.getItem("mock:unsub") === "1" && localStorage.getItem("mock:sameToken") !== "1")) {
     t = "mock-push-token-" + Math.random().toString(36).slice(2, 8);
     localStorage.setItem("mock:token", t);
     localStorage.removeItem("mock:unsub");
   }
+  if (localStorage.getItem("mock:sameToken") === "1") localStorage.removeItem("mock:unsub");
   return t;
 };
 export const deleteToken = async () => { throw new Error("Requested entity was not found"); };

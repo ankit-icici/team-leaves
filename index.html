@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v35";
+const APP_VERSION = "v36";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -2297,11 +2297,17 @@ async function freshPushToken(){
   const reg = await navigator.serviceWorker.ready, msg = m.getMessaging();
   const before = lsGet("deviceToken") || "";
   const sub = await reg.pushManager.getSubscription();
+  const oldEnd = (sub && sub.endpoint) || "";
   if(sub && !(await sub.unsubscribe())) throw new Error("couldn't release the old alert address");
   for(let i = 0; i < 3; i++){
     try {
       const t = await m.getToken(msg, { serviceWorkerRegistration: reg });
-      if(t && t !== before) return t;
+      // Google may hand back the same address string, re-activated for the phone's new
+      // push registration (Ankit's Pixel, November 18, 2026: a refused address worked
+      // again after this). A new registration counts as renewed even then.
+      const now = await reg.pushManager.getSubscription();
+      const newEnd = (now && now.endpoint) || "";
+      if(t && (t !== before || (newEnd && newEnd !== oldEnd))) return t;
     } catch(e){}
     await new Promise(r => setTimeout(r, 1500 * (i + 1)));
   }
@@ -2337,7 +2343,9 @@ async function doSyncDevice(force, renew){
     if(renew) rec.dead = false;   // a genuinely new address: reachable again
     await setDoc(doc(db, "devices", deviceId()), rec, { merge:true });
     lsSet("deviceSent", sig); lsSet("deviceToken", token);
-    if(renew){ alertsStopped = false; lsSet("missingFirst", ""); lsSet("healFailAt", ""); render(); }
+    // alerts sent before this renewal don't count against it, even if the address
+    // string came back the same
+    if(renew){ alertsStopped = false; noteRenewal(); lsSet("missingFirst", ""); lsSet("healFailAt", ""); render(); }
     return true;
   } catch(e){ return false; }
 }
@@ -2355,9 +2363,14 @@ async function doSyncDevice(force, renew){
    allow that after a tap, so there (and whenever a renewal fails) the "Alerts
    stopped" card offers "Turn back on". */
 let alertsStopped = false, stoppedCheckedAt = 0, healing = false, deletedHere = null;
+let lastSentSeen = "";   // the sender's newest accepted alert, as last read from the server
+// only ever moves forward: a tapped renewal with no fresh read must not forget an earlier one
+function noteRenewal(){ if(lastSentSeen > (lsGet("renewedSent") || "")) lsSet("renewedSent", lastSentSeen); }
 async function readDevice(){
   const snap = await getDocFromServer(doc(db, "devices", deviceId()));
-  return snap.exists() ? snap.data() : null;
+  const d = snap.exists() ? snap.data() : null;
+  lastSentSeen = (d && d.sentAt) || lastSentSeen;
+  return d;
 }
 async function readStopped(){
   const d = await readDevice();
@@ -2368,6 +2381,7 @@ const tokTail = t => String(t || "").slice(-12);
    stamp of the newest alert that arrived (from v34; exact, whatever the phone's clock) }. */
 function alertWentMissing(d, last){
   if(!d || !d.sentAt || d.sentTok !== tokTail(lsGet("deviceToken"))) return false;
+  if(d.sentAt <= (lsGet("renewedSent") || "")) return false;    // sent before the last renewal
   const sent = Date.parse(d.sentAt);
   if(!sent || Date.now() - sent < 20 * 60000) return false;   // may still be on its way
   if(last && last.sent) return last.sent < d.sentAt;           // same clock on both sides

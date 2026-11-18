@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 18, 2026,
-for app version **v35**.
+for app version **v36**.
 
 ---
 
@@ -139,7 +139,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v35)
+## 6. What the app does today (v36)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -266,6 +266,12 @@ say so once and let him decide.
     that goes to a dead address before the app is next opened is still lost; the
     repair happens on the next open. To check a phone from the console: compare
     `sentAt` with `gotAt` and `seenAt` in its record.
+    v36: renewing can give back the **same address string**, re-activated by Google
+    for the phone's new push registration (Ankit's Pixel, November 18, 2026: the
+    address refused on November 16 delivered a test fine after renewal). So a renewal
+    counts as done when the address changed *or* the phone's push registration
+    (endpoint) changed, and alerts sent before the last renewal (`tl:renewedSent`)
+    aren't counted against it again.
   - Alert buttons (turn on, turn off, test, turn back on, the lead pop-up's turn on)
     change to "Turning on…", "Sending…" etc. and ignore repeat taps until done (v33):
     renewing an address takes a few seconds and Ankit tapped the test button several
@@ -436,6 +442,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 18, 2026 | v36 | A renewal that gets the same address string back (re-activated by Google) counts as done; no repeat renewal for an alert sent before it |
 | Nov 18, 2026 | v35 | Morning and Monday alerts also on clear days ("Everyone's in today" / "Nobody's on leave"); Alerts screen wording to match |
 | Nov 18, 2026 | v34 | Alerts repair themselves when Google drops a phone's address (sender notes accepted alerts; the phone compares with what arrived and renews by itself; iPhone keeps the one-tap card); "Your phone turned alerts off" card; leads can delete a team (hidden for everyone, restorable); release check that every alert-record field is allowed by the rules. Independent review's fixes in |
 | Nov 12, 2026 | v33 | Alert buttons show at once that a tap worked ("Sending…", "Turning on…") and ignore repeat taps until done |

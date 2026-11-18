@@ -162,7 +162,15 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   ok(alertWentMissing(d, {at:ms(3000)}),"older background part, nothing since days: missing");
   ok(!alertWentMissing({sentAt:ago(5),sentTok:tail}, null),"accepted 5 minutes ago: may still be on its way");
   ok(!alertWentMissing({sentAt:S,sentTok:"OLDADDRESS00"}, null),"sent to this phone's previous address: not counted against the new one");
-  ok(!alertWentMissing({}, null) && !alertWentMissing(null, null),"nothing sent yet: not missing"); }
+  ok(!alertWentMissing({}, null) && !alertWentMissing(null, null),"nothing sent yet: not missing");
+  localStorage.setItem("tl:renewedSent", S);
+  ok(!alertWentMissing(d, null),"sent before the last renewal (same address string came back): not counted again");
+  ok(alertWentMissing({sentAt:ago(30),sentTok:tail}, null),"a later alert that never arrived still counts");
+  lastSentSeen=""; noteRenewal();
+  ok(localStorage.getItem("tl:renewedSent")===S,"a renewal with nothing read yet keeps the earlier mark");
+  lastSentSeen=ago(10); noteRenewal();
+  ok(localStorage.getItem("tl:renewedSent")===lastSentSeen,"a renewal after a newer send moves the mark forward");
+  localStorage.setItem("tl:renewedSent",""); lastSentSeen=""; }
 
 // v34: only the lead can delete a team
 { meId="me1"; tid="tA"; teamDoc={name:"Alpha",leadId:"me1",members:[{id:"me1",name:"Me"},{id:"m2",name:"Bo"}]};
