@@ -392,6 +392,16 @@ switches the session to "Ask permissions" and approves each command.
 
 ## 8. Open items
 
+0. **Alert addresses: one week's watch, until about November 25, 2026** (Ankit's choice,
+   November 18). Ankit's Pixel lost its alert address twice in about a week; only one
+   other phone (another lead's Android) has alerts on. From November 19 every lead gets
+   a 9 AM alert each working day, so each phone is tested daily. At the end, for each
+   phone in Firebase console → Firestore → `devices`: compare `sentAt` (Google accepted)
+   with `gotAt` (it arrived) and `seenAt`, look for `dead`/`deadAt`, and read the
+   sender's 9 AM logs (Apps Script → Executions) for "no longer reachable". Only
+   Ankit's phone failing → that phone (try a fresh reinstall of the app). Both failing
+   → recommend a Play Store / App Store app (native alerts renew their address in the
+   background, which a web app can't). Don't build either before then.
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
    person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
    screen again (e.g. for a new trial), set it back to `false`: only phones that opened
