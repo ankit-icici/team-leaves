@@ -22,5 +22,35 @@ w = subprocess.run(["node", os.path.join(root, "test", "sw-checks.mjs"), os.path
 print(w.stdout, w.stderr, sep="")
 a = subprocess.run(["node", os.path.join(root, "alerts", "test-alerts.mjs")], capture_output=True, text=True)
 print(a.stdout, a.stderr, sep="")
-bad = r.returncode or w.returncode or a.returncode or "FAIL" in (r.stdout + w.stdout + a.stdout)
+# Every field written to a phone's alert record (by the app or by the sender) must be
+# in the rules' list: the list covers the whole record, so one missing field blocks
+# every later save from the phone (caught in review, v34).
+rules = open(os.path.join(root, "firestore.rules"), encoding="utf-8").read()
+blk = rules.split("match /devices/{deviceId}", 1)[1].split("allow get", 1)[0]
+allowed = set(re.findall(r"'(\w+)'", blk.split("hasOnly(", 1)[1].split(")", 1)[0]))
+code = open(os.path.join(root, "alerts", "apps-script", "Code.js"), encoding="utf-8").read()
+def obj_keys(body):
+    """Top-level keys of a JS object literal body, shorthand ({ token, subs }) included."""
+    prev = None
+    while prev != body: prev, body = body, re.sub(r'\([^()]*\)|\[[^\[\]]*\]|\{[^{}]*\}', '', body)
+    keys = set()
+    for part in body.split(","):
+        k = re.match(r'\s*(\w+)\s*(:|$)', part)
+        if k: keys.add(k.group(1))
+    return keys
+written = set()
+for m in re.finditer(r'patchDoc_\("devices/"[^{]*\{([^}]*)\}', code): written |= obj_keys(m.group(1))
+app_js = s.split('<script type="module">', 1)[1]
+for m in re.finditer(r'setDoc\(doc\(db,\s*"devices",\s*deviceId\(\)\),\s*(\w+|\{[^}]*\})', app_js):
+    body = m.group(1)
+    if body.startswith("{"): written |= obj_keys(body[1:-1])
+    else:   # a variable: find where it is built (const name = { ... })
+        d = re.search(r'(?:const|let)\s+' + body + r'\s*=\s*\{([^;]*?)\};', app_js, re.S)
+        if d: written |= obj_keys(d.group(1))
+for m in re.finditer(r'rec\.(\w+)\s*=', app_js): written.add(m.group(1))
+written -= {"merge", "tid", "mid"}
+missing = sorted(written - allowed)
+print(("ok " if not missing else "FAIL ") + "phone alert record: every field written is allowed by the rules"
+      + ("" if not missing else " — missing: " + ", ".join(missing)) + " (" + ", ".join(sorted(written)) + ")")
+bad = r.returncode or w.returncode or a.returncode or "FAIL" in (r.stdout + w.stdout + a.stdout) or bool(missing)
 sys.exit(1 if bad else 0)

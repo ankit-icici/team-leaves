@@ -1,8 +1,8 @@
 # Team Leaves: handoff
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
-first, then this file, then `DECISIONS.md`. Last brought up to date: November 12, 2026,
-for app version **v33**.
+first, then this file, then `DECISIONS.md`. Last brought up to date: November 18, 2026,
+for app version **v34**.
 
 ---
 
@@ -76,7 +76,9 @@ teams/{teamId}              → { name, leadId, createdAt,
                                 hidden, hiddenAt }                                 // optional
 teams/{teamId}/years/{YYYY} → { days: { memberId: { "2026-11-05": "full" } } }
 devices/{deviceId}          → { token, subs:[{tid, mid}], prefs:{morning, week, leads},
-                                platform, updatedAt, off, testAt, dead, deadAt }
+                                platform, updatedAt, off, testAt, dead, deadAt,
+                                seenAt, gotAt, perm,      // phone's own report (v34)
+                                sentAt, sentTok }         // sender: last alert Google accepted
 meta/alerts                 → { state: JSON text: last run's upcoming dates per team,
                                 lastMorning, tests }          // sender only
 ```
@@ -92,9 +94,11 @@ meta/alerts                 → { state: JSON text: last run's upcoming dates pe
   teams.
 - Any legacy `"half"` value counts as a normal leave.
 - **Hidden teams:** `hidden: true` takes a team out of every list and off every phone,
-  for everyone; its data stays. The app has no button for it: set it in the Firebase
-  console (Firestore → Data → teams → the team → add field `hidden`, boolean, true). To
-  bring a team back, delete the `hidden` field. Four teams were hidden on October 29,
+  for everyone; its data stays. Since v34 a team's lead can do it from Manage team →
+  "Delete this team" (asks first; also writes `hiddenAt` and `hiddenBy`, the lead's
+  member id). It can also be set in the Firebase console (Firestore → Data → teams →
+  the team → add field `hidden`, boolean, true). To bring a team back, delete the
+  `hidden` field in the console. Four teams were hidden on October 29,
   2026, at Ankit's request (two duplicate copies of one team, a one-person test team and
   a former colleague's team): ids `t356e3f203j4k`, `t6m151241343l`, `t3d6s2b231k60`,
   `t0h032f0n2r0l`. Names are kept out of this public repo; they are in Ankit's private
@@ -135,7 +139,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v33)
+## 6. What the app does today (v34)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -241,6 +245,24 @@ say so once and let him decide.
     Proven on Ankit's Pixel on November 12, 2026: after "Turn back on" and a test, the
     test alert arrived at 2:37 PM. Not yet proven on iPhone: if an iPhone lead's alerts
     stop, check after their tap.
+  - **Alerts repair themselves (v34).** The address went dead again on Ankit's Pixel:
+    Google accepted the November 13 alerts without delivering them and refused the
+    address on November 17 ("Device unregistered"), while the phone kept offering the
+    same address (still on November 18), so it was lost on Google's side, not deleted
+    by the app (most likely Chrome or Android resetting its push registration). A
+    phone can't see that, so: the sender notes on the phone's record when Google
+    accepted an alert (`sentAt`, and `sentTok` = last 12 characters of the address);
+    each time the app opens or comes back to the front (at most every 10 minutes) the
+    phone reads its record from the server, reports `seenAt`, `gotAt` (when an alert
+    last reached it, from the background part) and `perm`, and renews its address by
+    itself, no tap, when the record is `dead` or an alert accepted 20+ minutes ago to
+    its current address never arrived (10 minutes' allowance for the phone's clock).
+    iPhones need a tap for this, so there (and if a renewal fails) the "Alerts
+    stopped" card shows. If the phone itself took the notification permission away,
+    leads see "Your phone turned alerts off · Turn back on" instead. Limit: an alert
+    that goes to a dead address before the app is next opened is still lost; the
+    repair happens on the next open. To check a phone from the console: compare
+    `sentAt` with `gotAt` and `seenAt` in its record.
   - Alert buttons (turn on, turn off, test, turn back on, the lead pop-up's turn on)
     change to "Turning on…", "Sending…" etc. and ignore repeat taps until done (v33):
     renewing an address takes a few seconds and Ankit tapped the test button several
@@ -395,6 +417,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 18, 2026 | v34 | Alerts repair themselves when Google drops a phone's address (sender notes accepted alerts; the phone compares with what arrived and renews by itself; iPhone keeps the one-tap card); "Your phone turned alerts off" card; leads can delete a team (hidden for everyone, restorable); release check that every alert-record field is allowed by the rules. Independent review's fixes in |
 | Nov 12, 2026 | v33 | Alert buttons show at once that a tap worked ("Sending…", "Turning on…") and ignore repeat taps until done |
 | Nov 12, 2026 | v32 | "Alerts stopped on this phone · Turn back on" card and tap-only renewal of a phone's alert address; phones may read their own alert record; sender resends to a renewed address and logs Google's reply. Made after Ankit's 9 AM alert didn't arrive (Google rejected his phone's address at 9:02). Independent review's fixes in |
 | Nov 10, 2026 | v31 | Alerts for team leads only: menu item only for leads, every alert only to the team's lead; independent review's fixes in |

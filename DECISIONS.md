@@ -7,6 +7,8 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Nov 18, 2026 | A team lead can delete their team. It's hidden for everyone (not erased), so it can be brought back in the Firebase console if it was a mistake. | Ankit asked for leads to be able to delete a team; hiding follows the Oct 29 rule that "delete" in this app means hidden, never erased. |
+| Nov 18, 2026 | Alerts repair themselves: a phone renews its alert address by itself (no tap) when the sender says Google refused it or an accepted alert never arrived. iPhones keep the one-tap card. Replaces "renew only on a tap" (Nov 12). | Ankit: no alerts received since the feature was built; "fix this for all users". Claude's technical choice. |
 | Nov 12, 2026 | When Google stops accepting a phone's alert address, the phone shows "Alerts stopped on this phone" with a "Turn back on" button; the address is renewed only when someone taps, never automatically in the background. | Claude's choice (technical): background renewal could break a working phone, and iPhones may refuse it without a tap. Ankit asked to find and fix why his November 12 morning alert didn't arrive. |
 | Nov 10, 2026 | The unused GitHub-side Google setup (Workload Identity pool `github` and service account `team-leaves-alerts`) is switched off, not deleted. | Ankit asked; Claude chose switching off so it can be undone. |
 | Nov 10, 2026 | **Only team leads get alerts**, and only about the teams they lead (morning, Monday and new/cancelled leave). Non-leads don't see Alerts in the menu; it appears when someone becomes a lead. Replaces "everyone can get the morning alerts". | Ankit. Claude noted that Ankit then gets no morning alerts for teams he's only a member of. |

@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v33";
+const APP_VERSION = "v34";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -541,6 +541,9 @@ function watchAllTeams(){
       }
       if(changed) saveKnown();
       if(tid && gone.has(tid)){
+        // tell the people still in it why it vanished (the lead who deleted it already knows)
+        const nm = teamDoc && teamDoc.name;
+        if(nm && tid !== deletedHere) setTimeout(() => toast(esc(nm)+" was deleted"), 400);
         stopAll(); tid = null; teamDoc = null;
         if(known.length){ openTeam(known[0].id); return; }
         phase = "pick";
@@ -2043,6 +2046,7 @@ function manageSheetHTML(){
     <button class="btn flat" data-act="share">Share the app</button>
     <button class="btn flat" data-act="export">Download a backup</button>`;
   h += `<button class="btn flat" data-act="restore">Restore from a backup file</button>`;
+  if(lead) h += `<button class="btn danger" data-act="tm-delete">Delete this team</button>`;
   h += `<button class="btn flat" data-act="close">Done</button></div>`;
   return h;
 }
@@ -2326,39 +2330,108 @@ async function doSyncDevice(force, renew){
     const subs = myTargets().targets.map(t => ({ tid:t.tid, mid:t.mid }));
     const prefs = alertPrefs();
     const sig = JSON.stringify([token, subs, prefs]);
-    if(!force && !renew && sig === lsGet("deviceSent")) return true;
+    if(!force && !renew && sig === lsGet("deviceSent")){ lsSet("deviceToken", token); return true; }
     const rec = { token, subs, prefs, off:false,
       platform: isIOS() ? "ios" : (/Android/.test(navigator.userAgent) ? "android" : "other"),
       updatedAt: new Date().toISOString() };
     if(renew) rec.dead = false;   // a genuinely new address: reachable again
     await setDoc(doc(db, "devices", deviceId()), rec, { merge:true });
     lsSet("deviceSent", sig); lsSet("deviceToken", token);
-    if(renew){ alertsStopped = false; render(); }
+    if(renew){ alertsStopped = false; lsSet("missingFirst", ""); lsSet("healFailAt", ""); render(); }
     return true;
   } catch(e){ return false; }
 }
 
-/* Did the sender find this phone unreachable? Asked of the server (never the
-   phone's saved copy) when the app opens and whenever it comes back to the front,
-   at most every 10 minutes; if so, a card offers "Turn back on" (a tap). */
-let alertsStopped = false, stoppedCheckedAt = 0;
-async function readStopped(){
+/* Keeping alerts working without anyone tapping (v34). Google sometimes throws
+   away a phone's alert address while the phone still believes it works (Ankit's
+   Pixel, November 2026: the phone kept offering the same address for days, Google
+   first accepted alerts for it without delivering them, then refused it). The
+   phone can't see that itself, so the sender tells it: `dead` when Google refuses
+   the address, `sentAt`/`sentTok` when Google accepted an alert for it. Each time
+   the app opens or comes back to the front (at most every 10 minutes) the phone
+   reads its record from the server, reports what it can see (`seenAt`, `gotAt` =
+   when an alert last reached it, `perm`), and gets itself a new address when the
+   record is dead or an alert accepted 20+ minutes ago never arrived. iPhones only
+   allow that after a tap, so there (and whenever a renewal fails) the "Alerts
+   stopped" card offers "Turn back on". */
+let alertsStopped = false, stoppedCheckedAt = 0, healing = false, deletedHere = null;
+async function readDevice(){
   const snap = await getDocFromServer(doc(db, "devices", deviceId()));
-  return !!(snap.exists() && snap.data().dead === true && !snap.data().off);
+  return snap.exists() ? snap.data() : null;
 }
+async function readStopped(){
+  const d = await readDevice();
+  return !!(d && d.dead === true && !d.off);
+}
+const tokTail = t => String(t || "").slice(-12);
+/* `last` is what the background part saw: { at: phone time, sent: the sender's own
+   stamp of the newest alert that arrived (from v34; exact, whatever the phone's clock) }. */
+function alertWentMissing(d, last){
+  if(!d || !d.sentAt || d.sentTok !== tokTail(lsGet("deviceToken"))) return false;
+  const sent = Date.parse(d.sentAt);
+  if(!sent || Date.now() - sent < 20 * 60000) return false;   // may still be on its way
+  if(last && last.sent) return last.sent < d.sentAt;           // same clock on both sides
+  const gotAt = last ? last.at : 0;                            // older background part: phone clock,
+  return !gotAt || gotAt < sent - 30 * 60000;                  // so allow it to be well off
+}
+const ISO = ms => ms ? new Date(ms).toISOString() : "";
+function lsJSON(k){ try { return JSON.parse(lsGet(k) || "null"); } catch(e){ return null; } }
+let recheckTimer = null;
 async function checkAlertsStopped(){
-  if(!CONFIGURED || !db || alertsState() !== "on" || Date.now() - stoppedCheckedAt < 600000) return;
+  if(!CONFIGURED || !db || lsGet("alertsOn") !== "1" || healing || Date.now() - stoppedCheckedAt < 600000) return;
   stoppedCheckedAt = Date.now();
   try {
+    await deviceChain;                       // a renewal already under way finishes first
+    if(healing) return;                      // another check started meanwhile and is on it
+    healing = true;                          // held until this check is done (one renewal at a time)
+    let d;
+    try { d = await readDevice(); } finally { healing = false; }
+    if(!d || d.off) return;
+    const st = await swAsk({ type:"alert-status" });
+    const last = st && st.last ? st.last : null;
+    // what the phone can see, so a failing phone can be spotted from the sender's side
+    const seen = { seenAt:new Date().toISOString(), gotAt: ISO(last && last.at), perm: Notification.permission };
+    if(d.gotAt !== seen.gotAt || d.perm !== seen.perm || !d.seenAt || Date.now() - Date.parse(d.seenAt) > 6 * 3600000)
+      setDoc(doc(db, "devices", deviceId()), seen, { merge:true }).catch(() => {});
+    if(alertsState() !== "on") return;       // permission gone: the "turned alerts off" card asks
+    let broken = d.dead === true;
+    if(!broken && st !== null && alertWentMissing(d, last)){
+      // an alert held while the phone was off or asleep can land seconds after the app
+      // opens: call it missing only if it's still missing on a second look 2+ minutes on
+      const first = lsJSON("missingFirst");
+      if(first && first.sentAt === d.sentAt && Date.now() - first.at >= 120000) broken = true;
+      else {
+        if(!first || first.sentAt !== d.sentAt) lsSet("missingFirst", JSON.stringify({ sentAt:d.sentAt, at:Date.now() }));
+        clearTimeout(recheckTimer);
+        recheckTimer = setTimeout(() => { stoppedCheckedAt = 0; checkAlertsStopped(); }, 150000);
+      }
+    }
+    // a renewal that failed isn't retried by itself for an hour (the card stays meanwhile)
+    if(broken && !isIOS() && Date.now() - (+(lsGet("healFailAt") || 0)) > 3600000){
+      healing = true;
+      const ok = await syncDevice(true, true).catch(() => false);
+      healing = false;
+      if(ok){ lsSet("missingFirst", ""); lsSet("healFailAt", ""); if(alertsStopped){ alertsStopped = false; render(); } return; }
+      lsSet("healFailAt", String(Date.now()));
+    }
     const was = alertsStopped;
-    alertsStopped = await readStopped();
+    alertsStopped = broken;
     if(alertsStopped !== was) render();
-  } catch(e){ stoppedCheckedAt = 0; }   // offline: try again on the next render
+  } catch(e){ healing = false; stoppedCheckedAt = 0; }   // offline: try again on the next render
 }
 document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "visible"){ stoppedCheckedAt = 0; checkAlertsStopped(); }
 });
+/* Alerts were on, but the phone itself has since taken the permission away
+   (some Android versions do this for apps they think are unused). */
+function alertsRevoked(){
+  return lsGet("alertsOn") === "1" && alertsState() === "off";
+}
 function alertsStoppedCardHTML(){
+  if(alertsRevoked() && teamsILead().length)
+    return `<div class="card drift"><b>Your phone turned alerts off</b>
+      <span>Team Leaves can't show alerts until you allow them again. One tap.</span>
+      <button data-act="al-on" style="background:var(--o-500)">Turn back on</button></div>`;
   if(!alertsStopped || alertsState() !== "on") return "";
   return `<div class="card drift"><b>Alerts stopped on this phone</b>
     <span>Your phone stopped accepting Team Leaves alerts. One tap turns them back on.</span>
@@ -2405,7 +2478,7 @@ function alertAskSheetHTML(){
       <button class="btn flat" data-act="close">Not now</button></div>`;
 }
 function leadAlertCardHTML(){
-  if(lsGet("alertAsked") !== "1" || lsGet("alertCardClosed") === "1" || !leadAlertsPending()) return "";
+  if(lsGet("alertAsked") !== "1" || lsGet("alertCardClosed") === "1" || !leadAlertsPending() || alertsRevoked()) return "";
   const lead = teamsILead();
   return `<div class="card drift" style="position:relative;padding-right:44px">
     <b>Know when your team marks leave</b>
@@ -2620,6 +2693,30 @@ document.addEventListener("click", async e => {
     const n = document.getElementById("ntName"), mm = document.getElementById("ntMe");
     const id = await createTeam(n ? n.value : "", mm ? mm.value : "");
     if(id) navReplace({ screen:"sheet", s:{ type:"share" } });   // the form is done with
+    return;
+  }
+  if(act === "tm-delete"){
+    if(!iAmLead()){ toast("Only the team lead can delete the team"); return; }
+    if(!navigator.onLine){ toast("Deleting a team needs internet"); return; }
+    const name = teamDoc.name, gone = tid;
+    if(!(await askConfirm({ title:"Delete "+name+"?",
+          body:"It disappears from everyone's app, along with its calendar and alerts. Its leaves stay saved, so the app's owner can bring the team back if this was a mistake.",
+          ok:"Delete team", danger:true }))) return;
+    closeSheet();
+    deletedHere = gone;
+    toast("Deleting "+esc(name)+"…");
+    try {
+      // hidden, never erased (nothing can be hard-deleted from the app); the team
+      // list then moves every phone off it, this one included
+      await Promise.race([
+        setDoc(doc(db, "teams", gone), { hidden:true, hiddenAt:new Date().toISOString(), hiddenBy:meId || "" }, { merge:true }),
+        new Promise((_, no) => setTimeout(() => no(new Error("slow")), 15000))]);
+      toast(esc(name)+" deleted");
+    } catch(e){
+      toast(e && e.message === "slow"
+        ? "The connection is slow: "+esc(name)+" is deleted as soon as it's back"
+        : "Couldn't delete the team. Please try again.");
+    }
     return;
   }
   if(act === "tm-rename"){

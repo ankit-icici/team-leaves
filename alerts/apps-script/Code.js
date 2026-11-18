@@ -118,13 +118,19 @@ function saveState_(state, dry) { if (!dry) patchDoc_("meta/alerts", { state: JS
 function send_(dev, title, body, tag, url, log, dry, retried) {
   log.push("  -> phone " + dev[0].slice(0, 8) + ": " + title + " | " + body.replace(/\n/g, " / "));
   if (dry) return;
+  var sentAt = new Date().toISOString();   // travels with the alert, and is noted on the record
   var msg = { message: { token: dev[1].token, webpush: {
     headers: { Urgency: "high", TTL: "43200" },
-    data: { title: title, body: body, tag: tag, url: url } } } };
+    data: { title: title, body: body, tag: tag, url: url, sent: sentAt } } } };
   for (var attempt = 1; attempt <= 2; attempt++) {
     try {
       var r = call_(FCM_URL, "post", msg);
-      if (r.code < 300) return;
+      if (r.code < 300) {
+        // Google accepted it: the phone checks this against what actually arrived
+        try { patchDoc_("devices/" + dev[0], { sentAt: sentAt, sentTok: String(dev[1].token).slice(-12) }); }
+        catch (e3) { log.push("     (couldn't note the send: " + e3 + ")"); }
+        return;
+      }
       if (r.code === 404 || /UNREGISTERED/.test(r.text) || (/INVALID_ARGUMENT/.test(r.text) && /token/i.test(r.text))) {
         log.push("     phone no longer reachable (HTTP " + r.code + " " + r.text.replace(/\s+/g, " ").slice(0, 160) + ")");
         try {

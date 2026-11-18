@@ -153,6 +153,11 @@ ok(s.length === 1 && s[0].token === "TOKEN-LEAD" && s[0].title === "On leave tod
    "9:01 AM: morning alert to the lead only: " + JSON.stringify(s.map(x => x.token + " " + x.title)));
 ok(!s.some(x => x.token === "TOKEN-B"), "a team member who isn't the lead gets no morning alert");
 ok(db["devices/pGone"].dead === true, "a phone the service says is gone is marked unreachable, and the run carried on");
+ok(db["devices/pL"].sentAt && db["devices/pL"].sentTok === "TOKEN-LEAD".slice(-12),
+   "an alert Google accepted is noted on the phone's record (when, and to which address), so the phone can tell if it never arrived");
+ok(!db["devices/pGone"].sentAt, "a refused alert isn't noted as sent");
+ok(s.length && s.every(x => x.sent) && db["devices/pL"].sentAt === s.filter(x => x.token === "TOKEN-LEAD").slice(-1)[0].sent,
+   "each alert carries the same send stamp that's noted on the phone's record");
 ok(run(at(2026, 11, 11, 9, 6)).length === 0, "morning alert goes once a day");
 ok(run(at(2026, 11, 14, 9, 1)).length === 0, "2nd Saturday: no morning alert");
 db["teams/A/years/2026"].days.c["2026-11-17"] = "full";

@@ -24,3 +24,9 @@ ok(store["last-alert"] && JSON.parse(store["last-alert"]).title==="Team Leaves",
 let reply=null;
 H.message({ data:{ type:"alert-status" }, ports:[{ postMessage:m=>{ reply=m; } }], waitUntil:p=>{ wait=p; } }); await wait;
 ok(reply && /^v\d+$/.test(reply.version) && reply.last && reply.last.title==="Team Leaves", "phone check reports version and last alert: "+JSON.stringify(reply));
+// v34: the sender's own send stamp is kept (the newest), so the app can tell a lost alert exactly
+H.push(ev(JSON.stringify({ data:{ title:"A", body:"", sent:"2026-11-18T03:30:00.000Z" } }))); await wait;
+H.push(ev(JSON.stringify({ data:{ title:"B", body:"", sent:"2026-11-18T03:29:00.000Z" } }))); await wait;
+ok(JSON.parse(store["last-alert"]).sent==="2026-11-18T03:30:00.000Z", "the newest send stamp is kept even when an older alert arrives last");
+H.push(ev(JSON.stringify({ data:{ title:"C", body:"" } }))); await wait;
+ok(JSON.parse(store["last-alert"]).sent==="2026-11-18T03:30:00.000Z" && JSON.parse(store["last-alert"]).title==="C", "an alert without a stamp keeps the stamp and still notes the arrival");

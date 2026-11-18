@@ -67,11 +67,14 @@ service cloud.firestore {
     // wants. A phone can write its record and read back that one record (by its
     // hard-to-guess id, to see whether the sender found it unreachable), but can never
     // list the records, so other phones' push tokens aren't exposed. The alert
-    // sender runs as the project owner, which these rules don't bind.
+    // sender runs as the project owner, which these rules don't bind. The list below
+    // covers the whole record, so it must include what the sender writes too
+    // (dead, deadAt, sentAt, sentTok), or the phone could no longer save its record.
     match /devices/{deviceId} {
       allow create, update: if client()
         && request.resource.data.keys().hasOnly(
-             ['token','subs','prefs','platform','updatedAt','testAt','off','dead','deadAt'])
+             ['token','subs','prefs','platform','updatedAt','testAt','off','dead','deadAt',
+               'seenAt','gotAt','perm','sentAt','sentTok'])
         && (!('token' in request.resource.data)
             || (request.resource.data.token is string && request.resource.data.token.size() < 1000));
       allow get: if client();

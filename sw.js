@@ -2,7 +2,7 @@
    Caches the app itself so it opens with no signal.
    Your leave DATA is handled separately by Firestore's own offline cache. */
 
-const CACHE = "team-leaves-v33";
+const CACHE = "team-leaves-v34";
 const META = "team-leaves-meta";   // survives version changes: the last alert received
 const SHELL = ["./", "./index.html", "./manifest.json", "./mulish.woff2",
                 "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
@@ -99,13 +99,17 @@ self.addEventListener("push", e => {
   const title = d.title || n.title || "Team Leaves";
   const opts = { body: d.body || n.body || "", icon: "icon-192.png", data: { url: d.url || "./" } };
   if(d.tag){ opts.tag = d.tag; opts.renotify = true; }
-  e.waitUntil(Promise.all([self.registration.showNotification(title, opts), noteAlert(title)]));
+  e.waitUntil(Promise.all([self.registration.showNotification(title, opts), noteAlert(title, d.sent)]));
 });
 
 /* For the Alerts screen's phone check: when the last alert reached this phone. */
-function noteAlert(title){
-  return caches.open(META)
-    .then(c => c.put("last-alert", new Response(JSON.stringify({ at: Date.now(), title }))))
+function noteAlert(title, sent){
+  // `sent` is the sender's own stamp: the newest one kept, so the app can compare it
+  // with the sender's record exactly, whatever the phone's clock says
+  return caches.open(META).then(c => c.match("last-alert")
+      .then(r => r ? r.json() : {}).catch(() => ({}))
+      .then(prev => c.put("last-alert", new Response(JSON.stringify({ at: Date.now(), title,
+        sent: sent && (!prev.sent || sent > prev.sent) ? sent : (prev.sent || "") })))))
     .catch(() => {});
 }
 

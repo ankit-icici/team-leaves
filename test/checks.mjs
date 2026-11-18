@@ -148,3 +148,23 @@ ok(new RegExp('class="ver">'+APP_VERSION).test(noTeamHTML()),"team list shows th
   teamDoc.leadId="other"; ok(!alertsVisible(),"…and not once they've handed the team over");
   ok(/Alerts are for team leads/.test(alertsSheetHTML()),"Alerts screen opened after handing over says so, no broken line"); }
 
+
+// v34: alerts repair themselves — when has an accepted alert gone missing?
+{ localStorage.setItem("tl:deviceToken","xxxxxxxxABCDEFGHIJKL");
+  const tail="ABCDEFGHIJKL", ago=m=>new Date(Date.now()-m*60000).toISOString(), ms=m=>Date.now()-m*60000;
+  const S=ago(60), d={sentAt:S,sentTok:tail};
+  ok(alertWentMissing(d, null),"accepted an hour ago, nothing ever arrived: missing");
+  ok(alertWentMissing(d, {at:ms(3000),sent:ago(3000)}),"accepted an hour ago, newest arrival is days older: missing");
+  ok(!alertWentMissing(d, {at:ms(59),sent:S}),"it arrived (same stamp): not missing");
+  ok(!alertWentMissing(d, {at:ms(500),sent:S}),"it arrived, phone clock hours off: still not missing");
+  ok(!alertWentMissing(d, {at:ms(59)}),"older background part, arrival after the send: not missing");
+  ok(!alertWentMissing(d, {at:ms(80)}),"older background part, phone clock 20 minutes off: not missing");
+  ok(alertWentMissing(d, {at:ms(3000)}),"older background part, nothing since days: missing");
+  ok(!alertWentMissing({sentAt:ago(5),sentTok:tail}, null),"accepted 5 minutes ago: may still be on its way");
+  ok(!alertWentMissing({sentAt:S,sentTok:"OLDADDRESS00"}, null),"sent to this phone's previous address: not counted against the new one");
+  ok(!alertWentMissing({}, null) && !alertWentMissing(null, null),"nothing sent yet: not missing"); }
+
+// v34: only the lead can delete a team
+{ meId="me1"; tid="tA"; teamDoc={name:"Alpha",leadId:"me1",members:[{id:"me1",name:"Me"},{id:"m2",name:"Bo"}]};
+  ok(/data-act="tm-delete"/.test(manageSheetHTML()),"the lead sees Delete this team");
+  teamDoc.leadId="m2"; ok(!/data-act="tm-delete"/.test(manageSheetHTML()),"a member doesn't"); }
