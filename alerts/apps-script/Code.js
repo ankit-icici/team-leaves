@@ -6,8 +6,8 @@
      1. New and cancelled leaves → the team's lead (not about their own changes).
      2. From 9:00 AM IST, once a day, on working days (Mon–Fri and the 1st, 3rd
         and 5th Saturdays): "On leave today" to the team's lead; on Mondays,
-        "On leave this week" instead, if the lead wants that. Nothing is sent
-        when nobody is on leave.
+        "On leave this week" instead, if the lead wants that. When nobody is
+        out it says "Everyone's in" (Ankit, November 18, 2026).
    Alerts are for team leads only (Ankit, November 10, 2026): every alert goes
    only to the lead of the team it's about.
      3. Test alerts asked for from the app's Alerts screen.

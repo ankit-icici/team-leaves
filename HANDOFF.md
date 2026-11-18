@@ -2,7 +2,7 @@
 
 Everything a new Claude session needs to carry on with no explanation. Read `CLAUDE.md`
 first, then this file, then `DECISIONS.md`. Last brought up to date: November 18, 2026,
-for app version **v34**.
+for app version **v35**.
 
 ---
 
@@ -139,7 +139,7 @@ The app hides other teams; it doesn't lock them. Don't add sign-in, team codes,
 passwords or per-team links unless Ankit asks. If a request would need real enforcement,
 say so once and let him decide.
 
-## 6. What the app does today (v34)
+## 6. What the app does today (v35)
 
 **Getting in**
 - One link for everyone. First open shows "Which team are you in?" with every team;
@@ -223,8 +223,11 @@ say so once and let him decide.
   alert only to the lead of the team it's about.
 - Phone notifications, chosen per phone under your name → Alerts (each one on/off):
   - **Who's on leave today:** "On leave today (3) · <team>" / "Asha, Bilal, Chitra",
-    9 AM IST, Monday–Friday and the 1st, 3rd and 5th Saturdays, only when someone's on
-    leave.
+    9 AM IST, Monday–Friday and the 1st, 3rd and 5th Saturdays. When nobody is out:
+    "Everyone's in today · <team>" / "Nobody's on leave" (Ankit, November 18, 2026;
+    until then nothing was sent on clear days). Monday likewise: "Everyone's in this
+    week (16–21 Nov)" / "Nobody's on leave". A daily alert also means a phone that
+    lost its address is found out (and repaired on its next open) within a day.
   - **Monday week ahead:** "On leave this week (16–21 Nov)" with lines like "Mon 16:
     Asha", in place of Monday's morning alert. The team name is added when a phone is
     in more than one team.
@@ -423,6 +426,7 @@ Things to know rather than fix:
 
 | Date | Version | What changed |
 |---|---|---|
+| Nov 18, 2026 | v35 | Morning and Monday alerts also on clear days ("Everyone's in today" / "Nobody's on leave"); Alerts screen wording to match |
 | Nov 18, 2026 | v34 | Alerts repair themselves when Google drops a phone's address (sender notes accepted alerts; the phone compares with what arrived and renews by itself; iPhone keeps the one-tap card); "Your phone turned alerts off" card; leads can delete a team (hidden for everyone, restorable); release check that every alert-record field is allowed by the rules. Independent review's fixes in |
 | Nov 12, 2026 | v33 | Alert buttons show at once that a tap worked ("Sending…", "Turning on…") and ignore repeat taps until done |
 | Nov 12, 2026 | v32 | "Alerts stopped on this phone · Turn back on" card and tap-only renewal of a phone's alert address; phones may read their own alert record; sender resends to a renewed address and logs Google's reply. Made after Ankit's 9 AM alert didn't arrive (Google rejected his phone's address at 9:02). Independent review's fixes in |

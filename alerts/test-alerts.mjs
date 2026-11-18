@@ -51,12 +51,14 @@ const r4 = [{ id: "a", name: "Asha Rao" }, { id: "b", name: "Bilal Khan" }, { id
 const days = { a: set(["2026-11-16"]), b: set(["2026-11-18"]), d: set(["2026-11-18"]), c: set(["2026-11-19", "2026-11-20"]) };
 m = L.morningAlert("Brand Partnerships", r4, days, D(2026, 11, 18));
 ok(m && m[0] === "On leave today (2) · Brand Partnerships" && m[1] === "Bilal, Dev", "morning: " + m);
-ok(L.morningAlert("X", r4, days, D(2026, 11, 17)) === null, "no morning alert when nobody's on leave");
+m = L.morningAlert("X", r4, days, D(2026, 11, 17));
+ok(m && m[0] === "Everyone's in today · X" && m[1] === "Nobody's on leave", "nobody on leave: the morning alert says so: " + m);
 m = L.weekAlert(r4, days, D(2026, 11, 16));
 ok(m && m[0] === "On leave this week (16–21 Nov)" && m[1] === "Mon 16: Asha\nWed 18: Bilal, Dev\nThu 19 – Fri 20: Chitra", "week: " + JSON.stringify(m));
 m = L.weekAlert(r4, { a: set(["2026-11-09"]) }, D(2026, 11, 9));
 ok(m && m[0] === "On leave this week (9–13 Nov)", "week without a working Saturday ends Friday");
-ok(L.weekAlert(r4, {}, D(2026, 11, 16)) === null, "no week alert when nobody's on leave");
+m = L.weekAlert(r4, {}, D(2026, 11, 16));
+ok(m && m[0] === "Everyone's in this week (16–21 Nov)" && m[1] === "Nobody's on leave", "nobody on leave all week: the Monday alert says so: " + m);
 m = L.weekAlert(r4, { a: set(["2026-11-30"]) }, D(2026, 11, 30));
 ok(m && m[0] === "On leave this week (30 Nov – 5 Dec)", "week across months: " + (m && m[0]));
 const sn = L.shortNames([{ id: "x", name: "Ravi Rao" }, { id: "y", name: "Ravi Shah" }, { id: "z", name: "Asha" }]);
@@ -149,8 +151,9 @@ db["teams/A/years/2026"].days.L = { "2026-11-25": "full" };
 ok(run(at(2026, 11, 10, 20, 15)).length === 0, "the lead's own leave isn't reported to the lead");
 ok(run(at(2026, 11, 11, 8, 55)).length === 0, "8:55 AM: too early for the morning alert");
 s = run(at(2026, 11, 11, 9, 1));
-ok(s.length === 1 && s[0].token === "TOKEN-LEAD" && s[0].title === "On leave today (1) · Alpha" && s[0].body === "Chitra",
-   "9:01 AM: morning alert to the lead only: " + JSON.stringify(s.map(x => x.token + " " + x.title)));
+ok(s.length === 2 && s.every(x => x.token === "TOKEN-LEAD") && s[0].title === "On leave today (1) · Alpha" && s[0].body === "Chitra"
+   && s[1].title === "Everyone's in today · Beta" && s[1].body === "Nobody's on leave",
+   "9:01 AM: morning alerts to the lead only, one per team they lead, 'Everyone's in' for the team with nobody out: " + JSON.stringify(s.map(x => x.token + " " + x.title)));
 ok(!s.some(x => x.token === "TOKEN-B"), "a team member who isn't the lead gets no morning alert");
 ok(db["devices/pGone"].dead === true, "a phone the service says is gone is marked unreachable, and the run carried on");
 ok(db["devices/pL"].sentAt && db["devices/pL"].sentTok === "TOKEN-LEAD".slice(-12),
@@ -163,8 +166,9 @@ ok(run(at(2026, 11, 14, 9, 1)).length === 0, "2nd Saturday: no morning alert");
 db["teams/A/years/2026"].days.c["2026-11-17"] = "full";
 s = run(at(2026, 11, 16, 9, 2));
 const wk = s.filter(x => x.tag.startsWith("week"));
-ok(wk.length === 1 && wk[0].token === "TOKEN-LEAD" && wk[0].title.startsWith("On leave this week (16–21 Nov)") && /Thu 19 – Sat 21: Bilal/.test(wk[0].body),
-   "Monday: week-ahead alert: " + JSON.stringify(wk.map(x => x.title + " | " + x.body)));
+ok(wk.length === 2 && wk.every(x => x.token === "TOKEN-LEAD") && wk[0].title.startsWith("On leave this week (16–21 Nov)") && /Thu 19 – Sat 21: Bilal/.test(wk[0].body)
+   && wk[1].title === "Everyone's in this week (16–21 Nov) · Beta" && wk[1].body === "Nobody's on leave",
+   "Monday: week-ahead alert per team, 'Everyone's in' for the team with nobody out all week: " + JSON.stringify(wk.map(x => x.title + " | " + x.body)));
 ok(s.filter(x => x.tag.startsWith("day")).length === 0, "Monday: no separate morning alert");
 ok(wk[0].title.endsWith("· Alpha"), "a lead of two teams sees which team the week alert is about");
 ok(!s.some(x => /Hidden/.test(x.title + x.body)), "hidden team: no alerts");

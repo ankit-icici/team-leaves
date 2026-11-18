@@ -7,6 +7,7 @@ project are in `~/Desktop/AI/BEST_PRACTICES.md`, not here.
 
 | Date | Decision | Why / notes |
 |---|---|---|
+| Nov 18, 2026 | The morning alert (and Monday's week ahead) comes every working day, also when nobody is on leave: "Everyone's in today · <team>" / "Nobody's on leave". Replaces "none when nobody's on leave" (Nov 10). | Ankit: "even if no one is on leave, alert should come saying so". Wording chosen by Claude to match the app's own "Everyone's in today". |
 | Nov 18, 2026 | A team lead can delete their team. It's hidden for everyone (not erased), so it can be brought back in the Firebase console if it was a mistake. | Ankit asked for leads to be able to delete a team; hiding follows the Oct 29 rule that "delete" in this app means hidden, never erased. |
 | Nov 18, 2026 | Alerts repair themselves: a phone renews its alert address by itself (no tap) when the sender says Google refused it or an accepted alert never arrived. iPhones keep the one-tap card. Replaces "renew only on a tap" (Nov 12). | Ankit: no alerts received since the feature was built; "fix this for all users". Claude's technical choice. |
 | Nov 12, 2026 | When Google stops accepting a phone's alert address, the phone shows "Alerts stopped on this phone" with a "Turn back on" button; the address is renewed only when someone taps, never automatically in the background. | Claude's choice (technical): background renewal could break a working phone, and iPhones may refuse it without a tap. Ankit asked to find and fix why his November 12 morning alert didn't arrive. |

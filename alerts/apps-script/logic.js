@@ -102,7 +102,8 @@ function outOn(key, roster, days) { return roster.filter(function (m) { return !
 
 function morningAlert(team, roster, days, today) {
   var names = shortNames(roster), out = outOn(dKey(today), roster, days);
-  if (!out.length) return null;
+  // nobody out: still sent (Ankit, November 18, 2026), so a lead knows the day is clear
+  if (!out.length) return ["Everyone's in today" + DOT + team, "Nobody's on leave"];
   return ["On leave today (" + out.length + ")" + DOT + team, out.map(function (m) { return names[m.id]; }).join(", ")];
 }
 
@@ -117,11 +118,11 @@ function weekAlert(roster, days, monday) {
     else rows.push({ s: d, e: d, who: who });
   });
   rows = rows.filter(function (r) { return r.who; });
-  if (!rows.length) return null;
   var a = work[0], b = work[work.length - 1];
   var span = a.getUTCMonth() === b.getUTCMonth()
     ? a.getUTCDate() + "–" + b.getUTCDate() + " " + MON[b.getUTCMonth()]
     : a.getUTCDate() + " " + MON[a.getUTCMonth()] + DASH + b.getUTCDate() + " " + MON[b.getUTCMonth()];
+  if (!rows.length) return ["Everyone's in this week (" + span + ")", "Nobody's on leave"];
   var lines = rows.map(function (r) {
     var when = r.s.getTime() === r.e.getTime() ? WD[weekday(r.s)] + " " + r.s.getUTCDate()
       : WD[weekday(r.s)] + " " + r.s.getUTCDate() + DASH + WD[weekday(r.e)] + " " + r.e.getUTCDate();

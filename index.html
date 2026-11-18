@@ -318,7 +318,7 @@ let dragging = false;
 const FORMER_CAP = 200;
 /* Bump this together with CACHE in sw.js on every upload — it is the only way
    to tell from a phone which version is actually running. */
-const APP_VERSION = "v34";
+const APP_VERSION = "v35";
 const COLORS = ["#E3530F","#94292E","#B45309","#0F766E","#9A3412","#1D4ED8",
                 "#166534","#BE185D","#6D28D9","#193D6C","#7C2D12","#0E7490"];
 /* Colours saved on people before the move to ICICI Bank colours (v23). Mapped
@@ -2471,7 +2471,7 @@ function alertAskSheetHTML(){
   return `<h3>Get alerts on this phone?</h3>
     <ul class="note" style="margin:8px 0 18px;padding-left:20px">
       <li>New and cancelled leaves in ${esc(lead.join(", ") || "your team")}</li>
-      <li>Every working morning at 9: who's on leave today (only when someone is)</li>
+      <li>Every working morning at 9: who's on leave today, or that everyone's in</li>
       <li>Mondays: who's on leave this week</li></ul>
     <div class="act">
       <button class="btn primary" data-act="al-ask-on">Turn on alerts</button>
@@ -2576,7 +2576,7 @@ function alertsSheetHTML(){
   const row = (k, title, desc) => `<button class="tog" role="switch" aria-checked="${!!p[k]}" data-act="al-tog" data-k="${k}">
       <span class="tx"><b>${title}</b><span class="d">${desc}</span></span><span class="sw"></span></button>`;
   h += `<div style="margin:0 0 8px">`
-    + row("morning", "Who's on leave today", "9 AM, Monday to Friday and the 1st, 3rd and 5th Saturdays. Only when someone in your team is on leave.")
+    + row("morning", "Who's on leave today", "9 AM, Monday to Friday and the 1st, 3rd and 5th Saturdays. Says \"Everyone's in\" when nobody is out.")
     + row("week", "Monday: who's on leave this week", "Comes in place of Monday's morning alert.")
     + (lead.length ? row("leads", "New and cancelled leaves",
         "In "+esc(lead.join(", "))+", which you lead. Arrives within about 5 minutes.") : "")
