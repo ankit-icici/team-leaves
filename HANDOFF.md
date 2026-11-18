@@ -304,6 +304,12 @@ say so once and let him decide.
   log line shows Google's code and reply; skips people no
   longer on a team; one alert per push token. A team's first run and anyone newly
   added are recorded silently.
+- **Release order when the phone record's fields change:** publish `firestore.rules`
+  first, then the sender, then the app. The rules list every field a phone record may
+  hold, including those the sender writes; if the sender writes a field the live rules
+  don't list, every save from that phone fails. `python3 test/run-checks.py` blocks a
+  release whose rules miss a field. (v34 was released this way; the sender was pasted
+  into the Apps Script editor in the owner's Chrome, as clasp was signed out.)
 - Change the sender: edit `alerts/apps-script/`, run `python3 test/run-checks.py`
   (includes `alerts/test-alerts.mjs`: the rules, plus `Code.js` run after run against a
   fake Firestore and messaging service), then upload with clasp from that folder:
