@@ -413,7 +413,8 @@ switches the session to "Ask permissions" and approves each command.
    arrives), yet he saw none: a display problem on the phone (Android notification
    settings, silent/adaptive notifications, Do Not Disturb), not a lost address.
    `gotAt` later than `sentAt` = delivered; then check the phone's notification
-   settings before suspecting the alert system.
+   settings before suspecting the alert system. Ankit confirmed the same day: his
+   Pixel's Notification history listed the alerts (received, shown silently).
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
    person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
    screen again (e.g. for a new trial), set it back to `false`: only phones that opened
