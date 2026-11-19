@@ -408,6 +408,12 @@ switches the session to "Ask permissions" and approves each command.
    Ankit's phone failing → that phone (try a fresh reinstall of the app). Both failing
    → recommend a Play Store / App Store app (native alerts renew their address in the
    background, which a web app can't). Don't build either before then.
+   November 19: Ankit's three 9:02 alerts were accepted by Google and **reached his
+   phone at 9:02:58** (`gotAt`, recorded by the app's background part as each alert
+   arrives), yet he saw none: a display problem on the phone (Android notification
+   settings, silent/adaptive notifications, Do Not Disturb), not a lost address.
+   `gotAt` later than `sentAt` = delivered; then check the phone's notification
+   settings before suspecting the alert system.
 1. Alerts are on for everyone (`ALERTS_FOR_ALL = true`, v28, November 10, 2026). Each
    person turns them on in the app; Claude gave Ankit a WhatsApp note for the team. To hide the
    screen again (e.g. for a new trial), set it back to `false`: only phones that opened
